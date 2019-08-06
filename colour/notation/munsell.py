@@ -25,6 +25,10 @@ Defines various objects for *Munsell Renotation System* computations:
 -   :func:`colour.notation.munsell_value_ASTMD153508`: *Munsell* value
     :math:`V` computation of given *luminance* :math:`Y` using
     *ASTM D1535-08e1* method.
+-   :attr:`colour.MUNSELL_VALUE_METHODS`: Supported *Munsell* value
+    computation methods.
+-   :func:`colour.munsell_value`: *Munsell* value :math:`V` computation of
+    given *luminance* :math:`Y` using given method.
 -   :func:`colour.munsell_colour_to_xyY`
 -   :func:`colour.xyY_to_munsell_colour`
 
@@ -38,7 +42,7 @@ Notes
 -----
 -   The Munsell Renotation data commonly available within the all.dat,
     experimental.dat and real.dat files features *CIE xyY* colourspace values
-    that are scaled by a :math:`1 / 0.975 \simeq 1.02568` factor. If you are
+    that are scaled by a :math:`1 / 0.975 \\simeq 1.02568` factor. If you are
     performing conversions using *Munsell* *Colorlab* specification,
     e.g. *2.5R 9/2*, according to *ASTM D1535-08e1* method, you should not
     scale the output :math:`Y` Luminance. However, if you use directly the
@@ -110,10 +114,8 @@ References
     Toolbox. Retrieved January 23, 2018, from
     http://www.munsellcolourscienceforpainters.com/\
 MunsellAndKubelkaMunkToolbox/MunsellAndKubelkaMunkToolbox.html
--   :cite:`Wikipediabs` : Nayatani, Y., Sobagaki, H., & Yano, K. H. T. (1995).
-    Lightness dependency of chroma scales of a nonlinear color-appearance model
-    and its latest formulation. Color Research & Application, 20(3), 156-167.
-    doi:10.1002/col.5080200305
+-   :cite:`Wikipedia2007c` : Wikipedia. (2007). Lightness. Retrieved April
+    13, 2014, from http://en.wikipedia.org/wiki/Lightness
 """
 
 from __future__ import division, unicode_literals
@@ -123,24 +125,27 @@ import re
 from collections import OrderedDict
 
 from colour.algebra import (Extrapolator, LinearInterpolator,
-                            cartesian_to_cylindrical, polar_to_cartesian,
-                            euclidean_distance)
+                            cartesian_to_cylindrical, euclidean_distance,
+                            polar_to_cartesian, spow)
 from colour.colorimetry import ILLUMINANTS, luminance_ASTMD153508
-from colour.constants import (DEFAULT_FLOAT_DTYPE, INTEGER_THRESHOLD,
-                              FLOATING_POINT_NUMBER_PATTERN)
+from colour.constants import (DEFAULT_FLOAT_DTYPE, DEFAULT_INT_DTYPE,
+                              INTEGER_THRESHOLD, FLOATING_POINT_NUMBER_PATTERN)
 from colour.models import Lab_to_LCHab, XYZ_to_Lab, XYZ_to_xy, xyY_to_XYZ
 from colour.volume import is_within_macadam_limits
 from colour.notation import MUNSELL_COLOURS_ALL
-from colour.utilities import (CaseInsensitiveMapping, Lookup, is_integer,
-                              is_numeric, tsplit, warning)
+from colour.utilities import (
+    CaseInsensitiveMapping, Lookup, as_float_array, as_float, as_int,
+    as_numeric, domain_range_scale, from_range_1, from_range_10,
+    get_domain_range_scale, to_domain_1, to_domain_10, to_domain_100,
+    is_integer, is_numeric, tsplit, usage_warning)
 
 __author__ = 'Colour Developers, Paul Centore'
-__copyright__ = 'Copyright (C) 2013-2018 - Colour Developers'
+__copyright__ = 'Copyright (C) 2013-2019 - Colour Developers'
 __copyright__ += ', '
 __copyright__ += (
     'The Munsell and Kubelka-Munk Toolbox: Copyright  2010-2018 Paul Centore '
     '(Gales Ferry, CT 06335, USA); used by permission.')
-__license__ = 'New BSD License - http://opensource.org/licenses/BSD-3-Clause'
+__license__ = 'New BSD License - https://opensource.org/licenses/BSD-3-Clause'
 __maintainer__ = 'Colour Developers'
 __email__ = 'colour-science@googlegroups.com'
 __status__ = 'Production'
@@ -169,10 +174,10 @@ __all__ = [
 ]
 
 MUNSELL_GRAY_PATTERN = 'N(?P<value>{0})'.format(FLOATING_POINT_NUMBER_PATTERN)
-MUNSELL_COLOUR_PATTERN = ('(?P<hue>{0})\s*'
-                          '(?P<letter>BG|GY|YR|RP|PB|B|G|Y|R|P)\s*'
-                          '(?P<value>{0})\s*\/\s*(?P<chroma>[-+]?{0})'.format(
-                              FLOATING_POINT_NUMBER_PATTERN))
+MUNSELL_COLOUR_PATTERN = ('(?P<hue>{0})\\s*'
+                          '(?P<letter>BG|GY|YR|RP|PB|B|G|Y|R|P)\\s*'
+                          '(?P<value>{0})\\s*\\/\\s*(?P<chroma>[-+]?{0})'.
+                          format(FLOATING_POINT_NUMBER_PATTERN))
 
 MUNSELL_GRAY_FORMAT = 'N{0}'
 MUNSELL_COLOUR_FORMAT = '{0} {1}/{2}'
@@ -222,17 +227,18 @@ def _munsell_specifications():
 
     Returns
     -------
-    list
+    ndarray
         *Munsell Renotation System* specifications.
     """
 
     global _MUNSELL_SPECIFICATIONS_CACHE
+
     if _MUNSELL_SPECIFICATIONS_CACHE is None:
-        _MUNSELL_SPECIFICATIONS_CACHE = [
+        _MUNSELL_SPECIFICATIONS_CACHE = np.array([
             munsell_colour_to_munsell_specification(
                 MUNSELL_COLOUR_FORMAT.format(*colour[0]))
             for colour in MUNSELL_COLOURS_ALL
-        ]
+        ])
     return _MUNSELL_SPECIFICATIONS_CACHE
 
 
@@ -248,6 +254,7 @@ def _munsell_value_ASTMD153508_interpolator():
     """
 
     global _MUNSELL_VALUE_ASTM_D1535_08_INTERPOLATOR_CACHE
+
     munsell_values = np.arange(0, 10, 0.001)
     if _MUNSELL_VALUE_ASTM_D1535_08_INTERPOLATOR_CACHE is None:
         _MUNSELL_VALUE_ASTM_D1535_08_INTERPOLATOR_CACHE = Extrapolator(
@@ -269,6 +276,7 @@ def _munsell_maximum_chromas_from_renotation():
     """
 
     global _MUNSELL_MAXIMUM_CHROMAS_FROM_RENOTATION_CACHE
+
     if _MUNSELL_MAXIMUM_CHROMAS_FROM_RENOTATION_CACHE is None:
         chromas = OrderedDict()
         for munsell_colour in MUNSELL_COLOURS_ALL:
@@ -288,7 +296,7 @@ def _munsell_maximum_chromas_from_renotation():
 def munsell_value_Priest1920(Y):
     """
     Returns the *Munsell* value :math:`V` of given *luminance* :math:`Y` using
-    *Priest et alii (1920)* method.
+    *Priest et al. (1920)* method.
 
     Parameters
     ----------
@@ -302,30 +310,40 @@ def munsell_value_Priest1920(Y):
 
     Notes
     -----
-    -   Input *Y* is in domain [0, 100].
-    -   Output *V* is in range [0, 10].
+
+    +------------+-----------------------+---------------+
+    | **Domain** | **Scale - Reference** | **Scale - 1** |
+    +============+=======================+===============+
+    | ``Y``      | [0, 100]              | [0, 1]        |
+    +------------+-----------------------+---------------+
+
+    +------------+-----------------------+---------------+
+    | **Range**  | **Scale - Reference** | **Scale - 1** |
+    +============+=======================+===============+
+    | ``V``      | [0, 10]               | [0, 1]        |
+    +------------+-----------------------+---------------+
 
     References
     ----------
-    -   :cite:`Wikipediabs`
+    :cite:`Wikipedia2007c`
 
     Examples
     --------
-    >>> munsell_value_Priest1920(10.08)  # doctest: +ELLIPSIS
-    3.1749015...
+    >>> munsell_value_Priest1920(12.23634268)  # doctest: +ELLIPSIS
+    3.4980484...
     """
 
-    Y = np.asarray(Y)
+    Y = to_domain_100(Y)
 
     V = 10 * np.sqrt(Y / 100)
 
-    return V
+    return from_range_10(V)
 
 
 def munsell_value_Munsell1933(Y):
     """
     Returns the *Munsell* value :math:`V` of given *luminance* :math:`Y` using
-    *Munsell et alii (1933)* method.
+    *Munsell et al. (1933)* method.
 
     Parameters
     ----------
@@ -339,24 +357,34 @@ def munsell_value_Munsell1933(Y):
 
     Notes
     -----
-    -   Input *Y* is in domain [0, 100].
-    -   Output *V* is in range [0, 10].
+
+    +------------+-----------------------+---------------+
+    | **Domain** | **Scale - Reference** | **Scale - 1** |
+    +============+=======================+===============+
+    | ``Y``      | [0, 100]              | [0, 1]        |
+    +------------+-----------------------+---------------+
+
+    +------------+-----------------------+---------------+
+    | **Range**  | **Scale - Reference** | **Scale - 1** |
+    +============+=======================+===============+
+    | ``V``      | [0, 10]               | [0, 1]        |
+    +------------+-----------------------+---------------+
 
     References
     ----------
-    -   :cite:`Wikipediabs`
+    :cite:`Wikipedia2007c`
 
     Examples
     --------
-    >>> munsell_value_Munsell1933(10.08)  # doctest: +ELLIPSIS
-    3.7918355...
+    >>> munsell_value_Munsell1933(12.23634268)  # doctest: +ELLIPSIS
+    4.1627702...
     """
 
-    Y = np.asarray(Y)
+    Y = to_domain_100(Y)
 
     V = np.sqrt(1.4742 * Y - 0.004743 * (Y * Y))
 
-    return V
+    return from_range_10(V)
 
 
 def munsell_value_Moon1943(Y):
@@ -377,24 +405,34 @@ def munsell_value_Moon1943(Y):
 
     Notes
     -----
-    -   Input *Y* is in domain [0, 100].
-    -   Output *V* is in range [0, 10].
+
+    +------------+-----------------------+---------------+
+    | **Domain** | **Scale - Reference** | **Scale - 1** |
+    +============+=======================+===============+
+    | ``Y``      | [0, 100]              | [0, 1]        |
+    +------------+-----------------------+---------------+
+
+    +------------+-----------------------+---------------+
+    | **Range**  | **Scale - Reference** | **Scale - 1** |
+    +============+=======================+===============+
+    | ``V``      | [0, 10]               | [0, 1]        |
+    +------------+-----------------------+---------------+
 
     References
     ----------
-    -   :cite:`Wikipediabs`
+    :cite:`Wikipedia2007c`
 
     Examples
     --------
-    >>> munsell_value_Moon1943(10.08)  # doctest: +ELLIPSIS
-    3.7462971...
+    >>> munsell_value_Moon1943(12.23634268)  # doctest: +ELLIPSIS
+    4.0688120...
     """
 
-    Y = np.asarray(Y)
+    Y = to_domain_100(Y)
 
-    V = 1.4 * Y ** 0.426
+    V = 1.4 * spow(Y, 0.426)
 
-    return V
+    return from_range_10(V)
 
 
 def munsell_value_Saunderson1944(Y):
@@ -414,24 +452,34 @@ def munsell_value_Saunderson1944(Y):
 
     Notes
     -----
-    -   Input *Y* is in domain [0, 100].
-    -   Output *V* is in range [0, 10].
+
+    +------------+-----------------------+---------------+
+    | **Domain** | **Scale - Reference** | **Scale - 1** |
+    +============+=======================+===============+
+    | ``Y``      | [0, 100]              | [0, 1]        |
+    +------------+-----------------------+---------------+
+
+    +------------+-----------------------+---------------+
+    | **Range**  | **Scale - Reference** | **Scale - 1** |
+    +============+=======================+===============+
+    | ``V``      | [0, 10]               | [0, 1]        |
+    +------------+-----------------------+---------------+
 
     References
     ----------
-    -   :cite:`Wikipediabs`
+    :cite:`Wikipedia2007c`
 
     Examples
     --------
-    >>> munsell_value_Saunderson1944(10.08)  # doctest: +ELLIPSIS
-    3.6865080...
+    >>> munsell_value_Saunderson1944(12.23634268)  # doctest: +ELLIPSIS
+    4.0444736...
     """
 
-    Y = np.asarray(Y)
+    Y = to_domain_100(Y)
 
-    V = 2.357 * (Y ** 0.343) - 1.52
+    V = 2.357 * spow(Y, 0.343) - 1.52
 
-    return V
+    return from_range_10(V)
 
 
 def munsell_value_Ladd1955(Y):
@@ -451,24 +499,34 @@ def munsell_value_Ladd1955(Y):
 
     Notes
     -----
-    -   Input *Y* is in domain [0, 100].
-    -   Output *V* is in range [0, 10].
+
+    +------------+-----------------------+---------------+
+    | **Domain** | **Scale - Reference** | **Scale - 1** |
+    +============+=======================+===============+
+    | ``Y``      | [0, 100]              | [0, 1]        |
+    +------------+-----------------------+---------------+
+
+    +------------+-----------------------+---------------+
+    | **Range**  | **Scale - Reference** | **Scale - 1** |
+    +============+=======================+===============+
+    | ``V``      | [0, 10]               | [0, 1]        |
+    +------------+-----------------------+---------------+
 
     References
     ----------
-    -   :cite:`Wikipediabs`
+    :cite:`Wikipedia2007c`
 
     Examples
     --------
-    >>> munsell_value_Ladd1955(10.08)  # doctest: +ELLIPSIS
-    3.6952862...
+    >>> munsell_value_Ladd1955(12.23634268)  # doctest: +ELLIPSIS
+    4.0511633...
     """
 
-    Y = np.asarray(Y)
+    Y = to_domain_100(Y)
 
-    V = 2.468 * (Y ** (1 / 3)) - 1.636
+    V = 2.468 * spow(Y, 1 / 3) - 1.636
 
-    return V
+    return from_range_10(V)
 
 
 def munsell_value_McCamy1987(Y):
@@ -488,30 +546,42 @@ def munsell_value_McCamy1987(Y):
 
     Notes
     -----
-    -   Input *Y* is in domain [0, 100].
-    -   Output *V* is in range [0, 10].
+
+    +------------+-----------------------+---------------+
+    | **Domain** | **Scale - Reference** | **Scale - 1** |
+    +============+=======================+===============+
+    | ``Y``      | [0, 100]              | [0, 1]        |
+    +------------+-----------------------+---------------+
+
+    +------------+-----------------------+---------------+
+    | **Range**  | **Scale - Reference** | **Scale - 1** |
+    +============+=======================+===============+
+    | ``V``      | [0, 10]               | [0, 1]        |
+    +------------+-----------------------+---------------+
 
     References
     ----------
-    -   :cite:`ASTMInternational1989a`
+    :cite:`ASTMInternational1989a`
 
     Examples
     --------
-    >>> munsell_value_McCamy1987(10.08)  # doctest: +ELLIPSIS
-    array(3.7347235...)
+    >>> munsell_value_McCamy1987(12.23634268)  # doctest: +ELLIPSIS
+    array(4.0814348...)
     """
 
-    Y = np.asarray(Y)
+    Y = to_domain_100(Y)
 
-    V = np.where(Y <= 0.9, 0.87445 * (Y ** 0.9967),
-                 (2.49268 * (Y ** (1 / 3)) - 1.5614 -
-                  (0.985 / (((0.1073 * Y - 3.084) ** 2) + 7.54)) +
-                  (0.0133 /
-                   (Y ** 2.3)) + 0.0084 * np.sin(4.1 * (Y ** (1 / 3)) + 1) +
-                  (0.0221 / Y) * np.sin(0.39 * (Y - 2)) -
-                  (0.0037 / (0.44 * Y)) * np.sin(1.28 * (Y - 0.53))))
+    V = np.where(
+        Y <= 0.9,
+        0.87445 * spow(Y, 0.9967),
+        2.49268 * spow(Y, 1 / 3) - 1.5614 - (0.985 / ((
+            (0.1073 * Y - 3.084) ** 2) + 7.54)) + (0.0133 / spow(Y, 2.3)) +
+        0.0084 * np.sin(4.1 * spow(Y, 1 / 3) + 1) +
+        (0.0221 / Y) * np.sin(0.39 * (Y - 2)) -
+        (0.0037 / (0.44 * Y)) * np.sin(1.28 * (Y - 0.53)),
+    )
 
-    return V
+    return from_range_10(V)
 
 
 def munsell_value_ASTMD153508(Y):
@@ -531,24 +601,37 @@ def munsell_value_ASTMD153508(Y):
 
     Notes
     -----
-    -   Input *Y* is in domain [0, 100].
-    -   Output *V* is in range [0, 10].
+
+    +------------+-----------------------+---------------+
+    | **Domain** | **Scale - Reference** | **Scale - 1** |
+    +============+=======================+===============+
+    | ``Y``      | [0, 100]              | [0, 1]        |
+    +------------+-----------------------+---------------+
+
+    +------------+-----------------------+---------------+
+    | **Range**  | **Scale - Reference** | **Scale - 1** |
+    +============+=======================+===============+
+    | ``V``      | [0, 10]               | [0, 1]        |
+    +------------+-----------------------+---------------+
+
+    -   The *Munsell* value* computation with *ASTM D1535-08e1* method is only
+        defined for domain [0, 100].
 
     References
     ----------
-    -   :cite:`ASTMInternational1989a`
+    :cite:`ASTMInternational1989a`
 
     Examples
     --------
-    >>> munsell_value_ASTMD153508(10.1488096782)  # doctest: +ELLIPSIS
-    3.7462971...
+    >>> munsell_value_ASTMD153508(12.23634268)  # doctest: +ELLIPSIS
+    4.0824437...
     """
 
-    Y = np.asarray(Y)
+    Y = to_domain_100(Y)
 
     V = _munsell_value_ASTMD153508_interpolator()(Y)
 
-    return V
+    return from_range_10(V)
 
 
 MUNSELL_VALUE_METHODS = CaseInsensitiveMapping({
@@ -561,12 +644,11 @@ MUNSELL_VALUE_METHODS = CaseInsensitiveMapping({
     'ASTM D1535-08': munsell_value_ASTMD153508
 })
 MUNSELL_VALUE_METHODS.__doc__ = """
-Supported *Munsell* value computations methods.
+Supported *Munsell* value computation methods.
 
 References
 ----------
--   :cite:`ASTMInternational1989a`
--   :cite:`Wikipediabs`
+:cite:`ASTMInternational1989a`, :cite:`Wikipedia2007c`
 
 MUNSELL_VALUE_METHODS : CaseInsensitiveMapping
     **{'Priest 1920', 'Munsell 1933', 'Moon 1943', 'Saunderson 1944',
@@ -600,83 +682,82 @@ def munsell_value(Y, method='ASTM D1535-08'):
 
     Notes
     -----
-    -   Input *Y* is in domain [0, 100].
-    -   Output *V* is in range [0, 10].
+
+    +------------+-----------------------+---------------+
+    | **Domain** | **Scale - Reference** | **Scale - 1** |
+    +============+=======================+===============+
+    | ``Y``      | [0, 100]              | [0, 1]        |
+    +------------+-----------------------+---------------+
+
+    +------------+-----------------------+---------------+
+    | **Range**  | **Scale - Reference** | **Scale - 1** |
+    +============+=======================+===============+
+    | ``V``      | [0, 10]               | [0, 1]        |
+    +------------+-----------------------+---------------+
 
     References
     ----------
-    -   :cite:`ASTMInternational1989a`
-    -   :cite:`Wikipediabs`
+    :cite:`ASTMInternational1989a`, :cite:`Wikipedia2007c`
 
     Examples
     --------
-    >>> munsell_value(10.08)  # doctest: +ELLIPSIS
-    3.7344764...
-    >>> munsell_value(10.08, method='Priest 1920')  # doctest: +ELLIPSIS
-    3.1749015...
-    >>> munsell_value(10.08, method='Munsell 1933')  # doctest: +ELLIPSIS
-    3.7918355...
-    >>> munsell_value(10.08, method='Moon 1943')  # doctest: +ELLIPSIS
-    3.7462971...
-    >>> munsell_value(10.08, method='Saunderson 1944')  # doctest: +ELLIPSIS
-    3.6865080...
-    >>> munsell_value(10.08, method='Ladd 1955')  # doctest: +ELLIPSIS
-    3.6952862...
-    >>> munsell_value(10.08, method='McCamy 1987')  # doctest: +ELLIPSIS
-    array(3.7347235...)
+    >>> munsell_value(12.23634268)  # doctest: +ELLIPSIS
+    4.0824437...
+    >>> munsell_value(12.23634268, method='Priest 1920') # doctest: +ELLIPSIS
+    3.4980484...
+    >>> munsell_value(12.23634268, method='Munsell 1933') # doctest: +ELLIPSIS
+    4.1627702...
+    >>> munsell_value(12.23634268, method='Moon 1943') # doctest: +ELLIPSIS
+    4.0688120...
+    >>> munsell_value(12.23634268, method='Saunderson 1944')
+    ... # doctest: +ELLIPSIS
+    4.0444736...
+    >>> munsell_value(12.23634268, method='Ladd 1955') # doctest: +ELLIPSIS
+    4.0511633...
+    >>> munsell_value(12.23634268, method='McCamy 1987') # doctest: +ELLIPSIS
+    array(4.0814348...)
     """
 
     return MUNSELL_VALUE_METHODS.get(method)(Y)
 
 
-def munsell_specification_to_xyY(specification):
+def _munsell_specification_to_xyY(specification):
     """
     Converts given *Munsell* *Colorlab* specification to *CIE xyY* colourspace.
 
 
     Parameters
     ----------
-    specification : numeric or tuple
+    specification : array_like
         *Munsell* *Colorlab* specification.
 
     Returns
     -------
-    ndarray, (3,)
+    ndarray
         *CIE xyY* colourspace array.
-
-    Notes
-    -----
-    -   Input *Munsell* *Colorlab* specification hue must be in domain [0, 10].
-    -   Input *Munsell* *Colorlab* specification value must be in domain
-        [0, 10].
-    -   Output *CIE xyY* colourspace array is in range [0, 1].
-
-    References
-    ----------
-    -   :cite:`Centore2014m`
-
-    Examples
-    --------
-    >>> spc = (2.1, 8.0, 17.9, 4)
-    >>> munsell_specification_to_xyY(spc)  # doctest: +ELLIPSIS
-    array([ 0.4400632...,  0.5522428...,  0.5761962...])
-    >>> munsell_specification_to_xyY(8.9)  # doctest: +ELLIPSIS
-    array([ 0.31006  ,  0.31616  ,  0.746134...])
     """
 
+    specification = normalize_munsell_specification(specification)
+
     if is_grey_munsell_colour(specification):
-        value = specification
-    else:
+        specification = as_float_array(to_domain_10(specification))
         hue, value, chroma, code = specification
+    else:
+        chroma_scale = 50 if get_domain_range_scale() == '1' else 2
+        specification = to_domain_10(specification,
+                                     np.array([10, 10, chroma_scale, 10]))
+        hue, value, chroma, code = ([as_float(i) for i in specification[0:3]] +
+                                    [DEFAULT_INT_DTYPE(specification[-1])])
 
         assert 0 <= hue <= 10, (
-            '"{0}" specification hue must be in domain [0, 10]!'.format(
-                specification))
+            '"{0}" specification hue must be normalised to domain '
+            '[0, 10]!'.format(specification))
         assert 0 <= value <= 10, (
-            '"{0}" specification value must be in domain [0, 10]!'.format(
-                specification))
+            '"{0}" specification value must be normalised to domain '
+            '[0, 10]!'.format(specification))
 
-    Y = luminance_ASTMD153508(value)
+    with domain_range_scale('ignore'):
+        Y = luminance_ASTMD153508(value)
 
     if is_integer(value):
         value_minus = value_plus = round(value)
@@ -698,12 +779,76 @@ def munsell_specification_to_xyY(specification):
         x = x_minus
         y = y_minus
     else:
-        Y_minus = luminance_ASTMD153508(value_minus)
-        Y_plus = luminance_ASTMD153508(value_plus)
+        with domain_range_scale('ignore'):
+            Y_minus = luminance_ASTMD153508(value_minus)
+            Y_plus = luminance_ASTMD153508(value_plus)
+
         x = LinearInterpolator((Y_minus, Y_plus), (x_minus, x_plus))(Y)
         y = LinearInterpolator((Y_minus, Y_plus), (y_minus, y_plus))(Y)
 
-    return np.array([x, y, Y / 100])
+    return np.array([x, y, from_range_1(Y / 100)])
+
+
+def munsell_specification_to_xyY(specification):
+    """
+    Converts given *Munsell* *Colorlab* specification to *CIE xyY* colourspace.
+
+    Parameters
+    ----------
+    specification : array_like
+        *Munsell* *Colorlab* specification.
+
+    Returns
+    -------
+    ndarray
+        *CIE xyY* colourspace array.
+
+    Notes
+    -----
+
+    +-------------------+-----------------------+---------------+
+    | **Domain**        | **Scale - Reference** | **Scale - 1** |
+    +===================+=======================+===============+
+    | ``specification`` | ``hue``    : [0, 10]  | [0, 1]        |
+    |                   |                       |               |
+    |                   | ``value``  : [0, 10]  | [0, 1]        |
+    |                   |                       |               |
+    |                   | ``chroma`` : [0, 50]  | [0, 1]        |
+    |                   |                       |               |
+    |                   | ``code``   : [0, 10]  | [0, 1]        |
+    +-------------------+-----------------------+---------------+
+
+    +-------------------+-----------------------+---------------+
+    | **Range**         | **Scale - Reference** | **Scale - 1** |
+    +===================+=======================+===============+
+    | ``xyY``           | [0, 1]                | [0, 1]        |
+    +-------------------+-----------------------+---------------+
+
+    References
+    ----------
+    :cite:`Centore2014m`
+
+    Examples
+    --------
+    >>> munsell_specification_to_xyY(np.array([2.1, 8.0, 17.9, 4]))
+    ... # doctest: +ELLIPSIS
+    array([ 0.4400632...,  0.5522428...,  0.5761962...])
+    >>> munsell_specification_to_xyY(np.array([np.nan, 8.9, np.nan, np.nan]))
+    ... # doctest: +ELLIPSIS
+    array([ 0.31006  ,  0.31616  ,  0.7461345...])
+    """
+
+    specification = as_float_array(specification)
+    shape = list(specification.shape)
+
+    xyY = [
+        _munsell_specification_to_xyY(a)
+        for a in specification.reshape([-1, 4])
+    ]
+
+    shape[-1] = 3
+
+    return as_float_array(xyY).reshape(shape)
 
 
 def munsell_colour_to_xyY(munsell_colour):
@@ -712,47 +857,58 @@ def munsell_colour_to_xyY(munsell_colour):
 
     Parameters
     ----------
-    munsell_colour : unicode
+    munsell_colour : unicode or array_like
         *Munsell* colour.
 
     Returns
     -------
-    ndarray, (3,)
+    ndarray
         *CIE xyY* colourspace array.
 
     Notes
     -----
-    -   Output *CIE xyY* colourspace array is in range [0, 1].
+
+    +-----------+-----------------------+---------------+
+    | **Range** | **Scale - Reference** | **Scale - 1** |
+    +===========+=======================+===============+
+    | ``xyY``   | [0, 1]                | [0, 1]        |
+    +-----------+-----------------------+---------------+
 
     References
     ----------
-    -   :cite:`Centorea`
-    -   :cite:`Centore2012a`
+    :cite:`Centorea`, :cite:`Centore2012a`
 
     Examples
     --------
     >>> munsell_colour_to_xyY('4.2YR 8.1/5.3')  # doctest: +ELLIPSIS
     array([ 0.3873694...,  0.3575165...,  0.59362   ])
     >>> munsell_colour_to_xyY('N8.9')  # doctest: +ELLIPSIS
-    array([ 0.31006  ,  0.31616  ,  0.746134...])
+    array([ 0.31006  ,  0.31616  ,  0.7461345...])
     """
 
-    specification = munsell_colour_to_munsell_specification(munsell_colour)
-    return munsell_specification_to_xyY(specification)
+    munsell_colour = np.array(munsell_colour)
+    shape = list(munsell_colour.shape)
+
+    specification = np.array([
+        munsell_colour_to_munsell_specification(a)
+        for a in np.ravel(munsell_colour)
+    ])
+
+    return munsell_specification_to_xyY(specification.reshape(shape + [4]))
 
 
-def xyY_to_munsell_specification(xyY):
+def _xyY_to_munsell_specification(xyY):
     """
     Converts from *CIE xyY* colourspace to *Munsell* *Colorlab* specification.
 
     Parameters
     ----------
-    xyY : array_like, (3,)
+    xyY : array_like
         *CIE xyY* colourspace array.
 
     Returns
     -------
-    numeric or tuple
+    ndarray
         *Munsell* *Colorlab* specification.
 
     Raises
@@ -763,46 +919,35 @@ def xyY_to_munsell_specification(xyY):
     RuntimeError
         If the maximum iterations count has been reached without converging to
         a result.
-
-    Notes
-    -----
-    -   Input *CIE xyY* colourspace array is in domain [0, 1].
-
-    References
-    ----------
-    -   :cite:`Centore2014p`
-
-    Examples
-    --------
-    >>> xyY = np.array([0.38736945, 0.35751656, 0.59362000])
-    >>> xyY_to_munsell_specification(xyY)  # doctest: +ELLIPSIS
-    (4.2000019..., 8.0999999..., 5.2999996..., 6)
     """
 
+    x, y, Y = tsplit(xyY)
+    Y = to_domain_1(Y)
+
     if not is_within_macadam_limits(xyY, MUNSELL_DEFAULT_ILLUMINANT):
-        warning('"{0}" is not within "MacAdam" limits for illuminant '
-                '"{1}"!'.format(xyY, MUNSELL_DEFAULT_ILLUMINANT))
+        usage_warning('"{0}" is not within "MacAdam" limits for illuminant '
+                      '"{1}"!'.format(xyY, MUNSELL_DEFAULT_ILLUMINANT))
 
-    x, y, Y = np.ravel(xyY)
+    with domain_range_scale('ignore'):
+        value = munsell_value_ASTMD153508(Y * 100)
 
-    # Scaling *Y* for algorithm needs.
-    value = munsell_value_ASTMD153508(Y * 100)
     if is_integer(value):
         value = round(value)
 
-    x_center, y_center, Y_center = np.ravel(
-        munsell_specification_to_xyY(value))
+    with domain_range_scale('ignore'):
+        x_center, y_center, Y_center = _munsell_specification_to_xyY(value)
+
     rho_input, phi_input, _z_input = cartesian_to_cylindrical(
         (x - x_center, y - y_center, Y_center))
     phi_input = np.degrees(phi_input)
 
     grey_threshold = 1e-7
     if rho_input < grey_threshold:
-        return value
+        return from_range_10(normalize_munsell_specification(value))
 
-    X, Y, Z = np.ravel(xyY_to_XYZ((x, y, Y)))
+    X, Y, Z = xyY_to_XYZ([x, y, Y])
     xi, yi = MUNSELL_DEFAULT_ILLUMINANT_CHROMATICITY_COORDINATES
-    Xr, Yr, Zr = np.ravel(xyY_to_XYZ((xi, yi, Y)))
+    Xr, Yr, Zr = xyY_to_XYZ([xi, yi, Y])
 
     XYZ = np.array([X, Y, Z])
     XYZr = np.array([(1 / Yr) * Xr, 1, (1 / Yr) * Zr])
@@ -831,8 +976,9 @@ def xyY_to_munsell_specification(xyY):
         if chroma_current > chroma_maximum:
             chroma_current = specification_current[2] = chroma_maximum
 
-        x_current, y_current, _Y_current = np.ravel(
-            munsell_specification_to_xyY(specification_current))
+        with domain_range_scale('ignore'):
+            x_current, y_current, _Y_current = _munsell_specification_to_xyY(
+                specification_current)
 
         rho_current, phi_current, _z_current = cartesian_to_cylindrical(
             (x_current - x_center, y_current - y_center, Y_center))
@@ -859,15 +1005,16 @@ def xyY_to_munsell_specification(xyY):
 
             hue_angle_inner = ((hue_angle_current + iterations_inner *
                                 (phi_input - phi_current)) % 360)
-            hue_angle_difference_inner = (iterations_inner *
-                                          (phi_input - phi_current) % 360)
+            hue_angle_difference_inner = (
+                iterations_inner * (phi_input - phi_current) % 360)
             if hue_angle_difference_inner > 180:
                 hue_angle_difference_inner -= 360
 
             hue_inner, code_inner = hue_angle_to_hue(hue_angle_inner)
-            x_inner, y_inner, _Y_inner = np.ravel(
-                munsell_specification_to_xyY((hue_inner, value, chroma_current,
-                                              code_inner)))
+
+            with domain_range_scale('ignore'):
+                x_inner, y_inner, _Y_inner = _munsell_specification_to_xyY(
+                    (hue_inner, value, chroma_current, code_inner))
 
             if len(phi_differences) >= 2:
                 extrapolate = True
@@ -890,22 +1037,28 @@ def xyY_to_munsell_specification(xyY):
         phi_differences_indexes = phi_differences.argsort()
 
         phi_differences = phi_differences[phi_differences_indexes]
-        hue_angles_differences = hue_angles_differences[
-            phi_differences_indexes]
+        hue_angles_differences = (
+            hue_angles_differences[phi_differences_indexes])
 
         hue_angle_difference_new = Extrapolator(
-            LinearInterpolator(phi_differences, hue_angles_differences))(
-                0) % 360
+            LinearInterpolator(phi_differences,
+                               hue_angles_differences))(0) % 360
         hue_angle_new = (hue_angle_current + hue_angle_difference_new) % 360
 
         hue_new, code_new = hue_angle_to_hue(hue_angle_new)
         specification_current = [hue_new, value, chroma_current, code_new]
 
-        x_current, y_current, _Y_current = np.ravel(
-            munsell_specification_to_xyY(specification_current))
+        with domain_range_scale('ignore'):
+            x_current, y_current, _Y_current = _munsell_specification_to_xyY(
+                specification_current)
+
+        chroma_scale = 50 if get_domain_range_scale() == '1' else 2
+
         difference = euclidean_distance((x, y), (x_current, y_current))
         if difference < convergence_threshold:
-            return tuple(specification_current)
+            return from_range_10(
+                np.array(specification_current),
+                np.array([10, 10, chroma_scale, 10]))
 
         # TODO: Consider refactoring implementation.
         hue_current, _value_current, chroma_current, code_current = (
@@ -915,8 +1068,9 @@ def xyY_to_munsell_specification(xyY):
         if chroma_current > chroma_maximum:
             chroma_current = specification_current[2] = chroma_maximum
 
-        x_current, y_current, _Y_current = np.ravel(
-            munsell_specification_to_xyY(specification_current))
+        with domain_range_scale('ignore'):
+            x_current, y_current, _Y_current = _munsell_specification_to_xyY(
+                specification_current)
 
         rho_current, phi_current, _z_current = cartesian_to_cylindrical(
             (x_current - x_center, y_current - y_center, Y_center))
@@ -933,15 +1087,17 @@ def xyY_to_munsell_specification(xyY):
                 raise RuntimeError(('Maximum inner iterations count reached '
                                     'without convergence!'))
 
-            chroma_inner = (((
-                rho_input / rho_current) ** iterations_inner) * chroma_current)
+            chroma_inner = (((rho_input / rho_current) ** iterations_inner) *
+                            chroma_current)
             if chroma_inner > chroma_maximum:
                 chroma_inner = specification_current[2] = chroma_maximum
 
             specification_inner = (hue_current, value, chroma_inner,
                                    code_current)
-            x_inner, y_inner, _Y_inner = np.ravel(
-                munsell_specification_to_xyY(specification_inner))
+
+            with domain_range_scale('ignore'):
+                x_inner, y_inner, _Y_inner = _munsell_specification_to_xyY(
+                    specification_inner)
 
             rho_inner, phi_inner, _z_inner = cartesian_to_cylindrical(
                 (x_inner - x_center, y_inner - y_center, Y_center))
@@ -959,14 +1115,86 @@ def xyY_to_munsell_specification(xyY):
         chroma_new = LinearInterpolator(rho_bounds, chroma_bounds)(rho_input)
 
         specification_current = [hue_current, value, chroma_new, code_current]
-        x_current, y_current, _Y_current = np.ravel(
-            munsell_specification_to_xyY(specification_current))
+
+        with domain_range_scale('ignore'):
+            x_current, y_current, _Y_current = _munsell_specification_to_xyY(
+                specification_current)
+
         difference = euclidean_distance((x, y), (x_current, y_current))
         if difference < convergence_threshold:
-            return tuple(specification_current)
+            return from_range_10(
+                np.array(specification_current),
+                np.array([10, 10, chroma_scale, 10]))
 
     raise RuntimeError(
         'Maximum outside iterations count reached without convergence!')
+
+
+def xyY_to_munsell_specification(xyY):
+    """
+    Converts from *CIE xyY* colourspace to *Munsell* *Colorlab* specification.
+
+    Parameters
+    ----------
+    xyY : array_lik
+        *CIE xyY* colourspace array.
+
+    Returns
+    -------
+    ndarray
+        *Munsell* *Colorlab* specification.
+
+    Raises
+    ------
+    ValueError
+        If the given *CIE xyY* colourspace array is not within MacAdam
+        limits.
+    RuntimeError
+        If the maximum iterations count has been reached without converging to
+        a result.
+
+    Notes
+    -----
+
+    +-------------------+-----------------------+---------------+
+    | **Domain**        | **Scale - Reference** | **Scale - 1** |
+    +===================+=======================+===============+
+    | ``xyY``           | [0, 1]                | [0, 1]        |
+    +-------------------+-----------------------+---------------+
+
+    +-------------------+-----------------------+---------------+
+    | **Range**         | **Scale - Reference** | **Scale - 1** |
+    +===================+=======================+===============+
+    | ``specification`` | ``hue``    : [0, 10]  | [0, 1]        |
+    |                   |                       |               |
+    |                   | ``value``  : [0, 10]  | [0, 1]        |
+    |                   |                       |               |
+    |                   | ``chroma`` : [0, 50]  | [0, 1]        |
+    |                   |                       |               |
+    |                   | ``code``   : [0, 10]  | [0, 1]        |
+    +-------------------+-----------------------+---------------+
+
+    References
+    ----------
+    :cite:`Centore2014p`
+
+    Examples
+    --------
+    >>> xyY = np.array([0.38736945, 0.35751656, 0.59362000])
+    >>> xyY_to_munsell_specification(xyY)  # doctest: +ELLIPSIS
+    array([ 4.2000019...,  8.0999999...,  5.2999996...,  6.        ])
+    """
+
+    xyY = as_float_array(xyY)
+    shape = list(xyY.shape)
+
+    specification = [
+        _xyY_to_munsell_specification(a) for a in xyY.reshape([-1, 3])
+    ]
+
+    shape[-1] = 4
+
+    return as_float_array(specification).reshape(shape)
 
 
 def xyY_to_munsell_colour(xyY,
@@ -994,12 +1222,16 @@ def xyY_to_munsell_colour(xyY,
 
     Notes
     -----
-    -   Input *CIE xyY* colourspace array is in domain [0, 1].
+
+    +------------+-----------------------+---------------+
+    | **Domain** | **Scale - Reference** | **Scale - 1** |
+    +============+=======================+===============+
+    | ``xyY``    | [0, 1]                | [0, 1]        |
+    +------------+-----------------------+---------------+
 
     References
     ----------
-    -   :cite:`Centorea`
-    -   :cite:`Centore2012a`
+    :cite:`Centorea`, :cite:`Centore2012a`
 
     Examples
     --------
@@ -1010,8 +1242,17 @@ def xyY_to_munsell_colour(xyY,
     """
 
     specification = xyY_to_munsell_specification(xyY)
-    return munsell_specification_to_munsell_colour(
-        specification, hue_decimals, value_decimals, chroma_decimals)
+    shape = list(specification.shape)
+
+    munsell_colour = [
+        munsell_specification_to_munsell_colour(
+            a, hue_decimals, value_decimals, chroma_decimals)
+        for a in specification.reshape([-1, 4])
+    ]
+    munsell_colour = np.array(munsell_colour).reshape(shape[:-1])
+    munsell_colour = str(munsell_colour) if shape == [4] else munsell_colour
+
+    return munsell_colour
 
 
 def parse_munsell_colour(munsell_colour):
@@ -1026,7 +1267,7 @@ def parse_munsell_colour(munsell_colour):
 
     Returns
     -------
-    float or tuple
+    ndarray
         Intermediate *Munsell* *Colorlab* specification.
 
     Raises
@@ -1037,22 +1278,30 @@ def parse_munsell_colour(munsell_colour):
 
     Examples
     --------
-    >>> parse_munsell_colour('N5.2')  # doctest: +ELLIPSIS
-    5.2...
+    >>> parse_munsell_colour('N5.2')
+    array([ nan,  5.2,  nan,  nan])
     >>> parse_munsell_colour('0YR 2.0/4.0')
-    (0.0, 2.0, 4.0, 6)
+    array([ 0.,  2.,  4.,  6.])
     """
 
     match = re.match(MUNSELL_GRAY_PATTERN, munsell_colour, flags=re.IGNORECASE)
     if match:
-        return DEFAULT_FLOAT_DTYPE(match.group('value'))
+        return as_float_array([
+            np.nan,
+            DEFAULT_FLOAT_DTYPE(match.group('value')),
+            np.nan,
+            np.nan,
+        ])
+
     match = re.match(
         MUNSELL_COLOUR_PATTERN, munsell_colour, flags=re.IGNORECASE)
     if match:
-        return (DEFAULT_FLOAT_DTYPE(match.group('hue')),
-                DEFAULT_FLOAT_DTYPE(match.group('value')),
-                DEFAULT_FLOAT_DTYPE(match.group('chroma')),
-                MUNSELL_HUE_LETTER_CODES.get(match.group('letter').upper()))
+        return as_float_array([
+            DEFAULT_FLOAT_DTYPE(match.group('hue')),
+            DEFAULT_FLOAT_DTYPE(match.group('value')),
+            DEFAULT_FLOAT_DTYPE(match.group('chroma')),
+            MUNSELL_HUE_LETTER_CODES.get(match.group('letter').upper()),
+        ])
 
     raise ValueError(
         ('"{0}" is not a valid "Munsell Renotation System" colour '
@@ -1061,12 +1310,11 @@ def parse_munsell_colour(munsell_colour):
 
 def is_grey_munsell_colour(specification):
     """
-    Returns if given *Munsell* *Colorlab* specification is a single number form
-    used for grey colour.
+    Returns if given *Munsell* *Colorlab* specification is a grey colour.
 
     Parameters
     ----------
-    specification : numeric or tuple
+    specification : array_like
         *Munsell* *Colorlab* specification.
 
     Returns
@@ -1076,13 +1324,17 @@ def is_grey_munsell_colour(specification):
 
     Examples
     --------
-    >>> is_grey_munsell_colour((0.0, 2.0, 4.0, 6))
+    >>> is_grey_munsell_colour(np.array([0.0, 2.0, 4.0, 6]))
     False
-    >>> is_grey_munsell_colour(0.5)
+    >>> is_grey_munsell_colour(np.array([np.nan, 0.5, np.nan, np.nan]))
     True
     """
 
-    return is_numeric(specification)
+    specification = as_float_array(specification)
+
+    specification = specification[~np.isnan(specification)]
+
+    return is_numeric(as_numeric(specification))
 
 
 def normalize_munsell_specification(specification):
@@ -1091,28 +1343,41 @@ def normalize_munsell_specification(specification):
 
     Parameters
     ----------
-    specification : numeric or tuple
+    specification : array_like
         *Munsell* *Colorlab* specification.
 
     Returns
     -------
-    numeric or tuple
+    ndarray
         Normalised *Munsell* *Colorlab* specification.
 
     Examples
     --------
-    >>> normalize_munsell_specification((0.0, 2.0, 4.0, 6))
-    (10, 2.0, 4.0, 7)
+    >>> normalize_munsell_specification(
+    ...     np.array([0.0, 2.0, 4.0, 6]))
+    array([ 10.,   2.,   4.,   7.])
+    >>> normalize_munsell_specification(
+    ...     np.array([np.nan, 0.5, np.nan, np.nan]))
+    array([ nan,  0.5,  nan,  nan])
     """
 
     if is_grey_munsell_colour(specification):
-        return specification
+        specification = as_float_array(specification)
+
+        value = as_numeric(specification[~np.isnan(specification)])
+
+        return as_float_array([np.nan, value, np.nan, np.nan])
     else:
         hue, value, chroma, code = specification
+
         if hue == 0:
             # 0YR is equivalent to 10R.
             hue, code = 10, (code + 1) % 10
-        return value if chroma == 0 else (hue, value, chroma, code)
+
+        if chroma == 0:
+            return as_float_array([np.nan, value, np.nan, np.nan])
+        else:
+            return as_float_array([hue, value, chroma, code])
 
 
 def munsell_colour_to_munsell_specification(munsell_colour):
@@ -1127,15 +1392,15 @@ def munsell_colour_to_munsell_specification(munsell_colour):
 
     Returns
     -------
-    numeric or tuple
+    array_like
         Normalised *Munsell* *Colorlab* specification.
 
     Examples
     --------
-    >>> munsell_colour_to_munsell_specification('N5.2')  # doctest: +ELLIPSIS
-    5.2...
+    >>> munsell_colour_to_munsell_specification('N5.2')
+    array([ nan,  5.2,  nan,  nan])
     >>> munsell_colour_to_munsell_specification('0YR 2.0/4.0')
-    (10, 2.0, 4.0, 7)
+    array([ 10.,   2.,   4.,   7.])
     """
 
     return normalize_munsell_specification(
@@ -1151,7 +1416,7 @@ def munsell_specification_to_munsell_colour(specification,
 
     Parameters
     ----------
-    specification : numeric or tuple
+    specification : array_like
         *Munsell* *Colorlab* specification.
     hue_decimals : int, optional
         Hue formatting decimals.
@@ -1168,17 +1433,20 @@ def munsell_specification_to_munsell_colour(specification,
     Examples
     --------
     >>> # Doctests skip for Python 2.x compatibility.
-    >>> munsell_specification_to_munsell_colour(5.2)  # doctest: +SKIP
+    >>> munsell_specification_to_munsell_colour(
+    ...     np.array([np.nan, 5.2, np.nan, np.nan]))  # doctest: +SKIP
     'N5.2'
     >>> # Doctests skip for Python 2.x compatibility.
-    >>> spc = (10, 2.0, 4.0, 7)
-    >>> munsell_specification_to_munsell_colour(spc)  # doctest: +SKIP
+    >>> munsell_specification_to_munsell_colour(
+    ...     np.array([10, 2.0, 4.0, 7]))  # doctest: +SKIP
     '10.0R 2.0/4.0'
     """
 
     if is_grey_munsell_colour(specification):
-        return MUNSELL_GRAY_EXTENDED_FORMAT.format(specification,
-                                                   value_decimals)
+        hue, value, chroma, code = normalize_munsell_specification(
+            specification)
+
+        return MUNSELL_GRAY_EXTENDED_FORMAT.format(value, value_decimals)
     else:
         rounding_decimals = (hue_decimals, value_decimals, chroma_decimals, 1)
         hue, value, chroma, code = [
@@ -1188,14 +1456,14 @@ def munsell_specification_to_munsell_colour(specification,
         code_values = MUNSELL_HUE_LETTER_CODES.values()
 
         assert 0 <= hue <= 10, (
-            '"{0}" specification hue must be in domain [0, 10]!'.format(
-                specification))
+            '"{0}" specification hue must be normalised to domain '
+            '[0, 10]!'.format(specification))
         assert 0 <= value <= 10, (
-            '"{0}" specification value must be in domain [0, 10]!'.format(
-                specification))
+            '"{0}" specification value must be normalised to domain '
+            '[0, 10]!'.format(specification))
         assert 2 <= chroma <= 50, (
-            '"{0}" specification chroma must be in domain [2, 50]!'.format(
-                specification))
+            '"{0}" specification chroma must be normalised to domain '
+            '[2, 50]!'.format(specification))
         assert code in code_values, (
             '"{0}" specification code must one of "{1}"!'.format(
                 specification, code_values))
@@ -1208,6 +1476,7 @@ def munsell_specification_to_munsell_colour(specification,
                                                        value_decimals)
         else:
             hue_letter = MUNSELL_HUE_LETTER_CODES.first_key_from_value(code)
+
             return MUNSELL_COLOUR_EXTENDED_FORMAT.format(
                 hue, hue_decimals, hue_letter, value, value_decimals, chroma,
                 chroma_decimals)
@@ -1220,7 +1489,7 @@ def xyY_from_renotation(specification):
 
     Parameters
     ----------
-    specification : numeric or tuple
+    specification : array_like
         *Munsell* *Colorlab* specification.
 
     Returns
@@ -1236,17 +1505,18 @@ def xyY_from_renotation(specification):
 
     Examples
     --------
-    >>> xyY_from_renotation((2.5, 0.2, 2.0, 4))  # doctest: +ELLIPSIS
+    >>> xyY_from_renotation(np.array([2.5, 0.2, 2.0, 4]))  # doctest: +ELLIPSIS
     array([ 0.71...,  1.41...,  0.23...])
     """
 
     specification = normalize_munsell_specification(specification)
 
-    specifications = _munsell_specifications()
     try:
-        return MUNSELL_COLOURS_ALL[specifications.index(specification)][1]
-    except ValueError:
-        # TODO: Should raise KeyError, need to check the tests.
+        index = np.where(
+            (_munsell_specifications() == specification).all(axis=-1))
+
+        return MUNSELL_COLOURS_ALL[as_int(index[0])][1]
+    except Exception:
         raise ValueError(
             ('"{0}" specification does not exists in '
              '"Munsell Renotation System" data!').format(specification))
@@ -1259,7 +1529,7 @@ def is_specification_in_renotation(specification):
 
     Parameters
     ----------
-    specification : numeric or tuple
+    specification : array_like
         *Munsell* *Colorlab* specification.
 
     Returns
@@ -1269,14 +1539,15 @@ def is_specification_in_renotation(specification):
 
     Examples
     --------
-    >>> is_specification_in_renotation((2.5, 0.2, 2.0, 4))
+    >>> is_specification_in_renotation(np.array([2.5, 0.2, 2.0, 4]))
     True
-    >>> is_specification_in_renotation((64, 0.2, 2.0, 4))
+    >>> is_specification_in_renotation(np.array([64, 0.2, 2.0, 4]))
     False
     """
 
     try:
         xyY_from_renotation(specification)
+
         return True
     except ValueError:
         return False
@@ -1296,17 +1567,18 @@ def bounding_hues_from_renotation(hue, code):
 
     Returns
     -------
-    tuple
+    ndarray
         Bounding hues.
 
     References
     ----------
-    -   :cite:`Centore2014o`
+    :cite:`Centore2014o`
 
     Examples
     --------
     >>> bounding_hues_from_renotation(3.2, 4)
-    ((2.5, 4), (5.0, 4))
+    array([[ 2.5,  4. ],
+           [ 5. ,  4. ]])
     """
 
     if hue % 2.5 == 0:
@@ -1333,7 +1605,7 @@ def bounding_hues_from_renotation(hue, code):
             code_cw = code
         code_ccw = code
 
-    return (hue_cw, code_cw), (hue_ccw, code_ccw)
+    return as_float_array([(hue_cw, code_cw), (hue_ccw, code_ccw)])
 
 
 def hue_to_hue_angle(hue, code):
@@ -1355,7 +1627,7 @@ def hue_to_hue_angle(hue, code):
 
     References
     ----------
-    -   :cite:`Centore2014s`
+    :cite:`Centore2014s`
 
     Examples
     --------
@@ -1364,9 +1636,10 @@ def hue_to_hue_angle(hue, code):
     """
 
     single_hue = ((17 - code) % 10 + (hue / 10) - 0.5) % 10
-    return LinearInterpolator((0, 2, 3, 4, 5, 6, 8, 9, 10),
-                              (0, 45, 70, 135, 160, 225, 255, 315,
-                               360))(single_hue)
+
+    return LinearInterpolator(
+        (0, 2, 3, 4, 5, 6, 8, 9, 10),
+        (0, 45, 70, 135, 160, 225, 255, 315, 360))(single_hue)
 
 
 def hue_angle_to_hue(hue_angle):
@@ -1381,18 +1654,18 @@ def hue_angle_to_hue(hue_angle):
 
     Returns
     -------
-    tuple
+    ndarray
         (*Munsell* *Colorlab* specification hue, *Munsell* *Colorlab*
         specification code).
 
     References
     ----------
-    -   :cite:`Centore2014t`
+    :cite:`Centore2014t`
 
     Examples
     --------
     >>> hue_angle_to_hue(65.54)  # doctest: +ELLIPSIS
-    (3.2160000..., 4)
+    array([ 3.216,  4.   ])
     """
 
     single_hue = LinearInterpolator((0, 45, 70, 135, 160, 225, 255, 315, 360),
@@ -1424,13 +1697,14 @@ def hue_angle_to_hue(hue_angle):
     hue = (10 * (single_hue % 1) + 5) % 10
     if hue == 0:
         hue = 10
-    return hue, code
+
+    return as_float_array([hue, code])
 
 
 def hue_to_ASTM_hue(hue, code):
     """
     Converts from the *Munsell* *Colorlab* specification hue to *ASTM* hue
-    number in range [0, 100].
+    number.
 
     Parameters
     ----------
@@ -1442,11 +1716,11 @@ def hue_to_ASTM_hue(hue, code):
     Returns
     -------
     numeric
-        *ASM* hue number.
+        *ASTM* hue number.
 
     References
     ----------
-    -   :cite:`Centore2014k`
+    :cite:`Centore2014k`
 
     Examples
     --------
@@ -1455,6 +1729,7 @@ def hue_to_ASTM_hue(hue, code):
     """
 
     ASTM_hue = 10 * ((7 - code) % 10) + hue
+
     return 100 if ASTM_hue == 0 else ASTM_hue
 
 
@@ -1466,7 +1741,7 @@ def interpolation_method_from_renotation_ovoid(specification):
 
     Parameters
     ----------
-    specification : numeric or tuple
+    specification : array_like
         *Munsell* *Colorlab* specification.
 
     Returns
@@ -1474,22 +1749,15 @@ def interpolation_method_from_renotation_ovoid(specification):
     unicode or None ('Linear', 'Radial', None)
         Interpolation method.
 
-    Notes
-    -----
-    -   Input *Munsell* *Colorlab* specification value must be an integer in
-        domain [0, 10].
-    -   Input *Munsell* *Colorlab* specification chroma must be an integer and
-        a multiple of 2 in domain [2, 50].
-
     References
     ----------
-    -   :cite:`Centore2014l`
+    :cite:`Centore2014l`
 
     Examples
     --------
-    >>> spc = (2.5, 5.0, 12.0, 4)
     >>> # Doctests skip for Python 2.x compatibility.
-    >>> interpolation_method_from_renotation_ovoid()  # doctest: +SKIP
+    >>> interpolation_method_from_renotation_ovoid((2.5, 5.0, 12.0, 4))
+    ... # doctest: +SKIP
     'Radial'
     """
 
@@ -1504,8 +1772,8 @@ def interpolation_method_from_renotation_ovoid(specification):
         hue, value, chroma, code = specification
 
         assert 0 <= value <= 10, (
-            '"{0}" specification value must be in domain [0, 10]!'.format(
-                specification))
+            '"{0}" specification value must be normalised to domain '
+            '[0, 10]!'.format(specification))
         assert is_integer(value), (
             '"{0}" specification value must be an integer!'.format(
                 specification))
@@ -1517,12 +1785,12 @@ def interpolation_method_from_renotation_ovoid(specification):
             interpolation_method = 0
 
         assert 2 <= chroma <= 50, (
-            '"{0}" specification chroma must be in domain [2, 50]!'.format(
-                specification))
-        assert abs(2 *
-                   (chroma / 2 - round(chroma / 2))) <= INTEGER_THRESHOLD, ((
-                       '"{0}" specification chroma must be an integer and '
-                       'multiple of 2!').format(specification))
+            '"{0}" specification chroma must be normalised to domain '
+            '[2, 50]!'.format(specification))
+        assert abs(
+            2 * (chroma / 2 - round(chroma / 2))) <= INTEGER_THRESHOLD, ((
+                '"{0}" specification chroma must be an integer and '
+                'multiple of 2!').format(specification))
 
         chroma = 2 * round(chroma / 2)
 
@@ -1752,7 +2020,7 @@ def xy_from_renotation_ovoid(specification):
 
     Parameters
     ----------
-    specification : numeric or tuple
+    specification : array_like
         *Munsell* *Colorlab* specification.
 
     Returns
@@ -1766,22 +2034,17 @@ def xy_from_renotation_ovoid(specification):
         If an invalid interpolation method is retrieved from internal
         computations.
 
-    Notes
-    -----
-    -   Input *Munsell* *Colorlab* specification value must be an integer in
-        domain [1, 9].
-    -   Input *Munsell* *Colorlab* specification chroma must be an integer and
-        a multiple of 2 in domain [2, 50].
-
     References
     ----------
-    -   :cite:`Centore2014n`
+    :cite:`Centore2014n`
 
     Examples
     --------
-    >>> xy_from_renotation_ovoid((2.5, 5.0, 12.0, 4))  # doctest: +ELLIPSIS
+    >>> xy_from_renotation_ovoid((2.5, 5.0, 12.0, 4))
+    ... # doctest: +ELLIPSIS
     array([ 0.4333...,  0.5602...])
-    >>> xy_from_renotation_ovoid(8)  # doctest: +ELLIPSIS
+    >>> xy_from_renotation_ovoid((np.nan, 8, np.nan, np.nan))
+    ... # doctest: +ELLIPSIS
     array([ 0.31006...,  0.31616...])
     """
 
@@ -1793,8 +2056,8 @@ def xy_from_renotation_ovoid(specification):
         hue, value, chroma, code = specification
 
         assert 1 <= value <= 9, (
-            '"{0}" specification value must be in domain [1, 9]!'.format(
-                specification))
+            '"{0}" specification value must be normalised to domain '
+            '[1, 9]!'.format(specification))
         assert is_integer(value), (
             '"{0}" specification value must be an integer!'.format(
                 specification))
@@ -1802,12 +2065,12 @@ def xy_from_renotation_ovoid(specification):
         value = round(value)
 
         assert 2 <= chroma <= 50, (
-            '"{0}" specification chroma must be in domain [2, 50]!'.format(
-                specification))
-        assert abs(2 *
-                   (chroma / 2 - round(chroma / 2))) <= INTEGER_THRESHOLD, ((
-                       '"{0}" specification chroma must be an integer and '
-                       'multiple of 2!').format(specification))
+            '"{0}" specification chroma must be normalised to domain '
+            '[2, 50]!'.format(specification))
+        assert abs(
+            2 * (chroma / 2 - round(chroma / 2))) <= INTEGER_THRESHOLD, ((
+                '"{0}" specification chroma must be an integer and '
+                'multiple of 2!').format(specification))
 
         chroma = 2 * round(chroma / 2)
 
@@ -1819,7 +2082,7 @@ def xy_from_renotation_ovoid(specification):
                 abs(hue - 10) < threshold):
             hue = 2.5 * round(hue / 2.5)
             x, y, _Y = xyY_from_renotation((hue, value, chroma, code))
-            return np.array([x, y])
+            return as_float_array([x, y])
 
         hue_cw, hue_ccw = bounding_hues_from_renotation(hue, code)
         hue_minus, code_minus = hue_cw
@@ -1871,46 +2134,42 @@ def xy_from_renotation_ovoid(specification):
                                      (rho_minus, rho_plus))(hue_angle)
 
             x, y = tsplit(
-                polar_to_cartesian((rho, np.radians(theta))) + np.asarray(
-                    (x_grey, y_grey)))
+                polar_to_cartesian((rho, np.radians(theta))) +
+                as_float_array((x_grey, y_grey)))
         else:
             raise ValueError('Invalid interpolation method: "{0}"'.format(
                 interpolation_method))
 
-        return np.array([x, y])
+        return as_float_array([x, y])
 
 
 def LCHab_to_munsell_specification(LCHab):
     """
-    Converts from *CIE L\*C\*Hab* colourspace to approximate *Munsell*
+    Converts from *CIE L\\*C\\*Hab* colourspace to approximate *Munsell*
     *Colorlab* specification.
 
     Parameters
     ----------
     LCHab : array_like, (3,)
-        *CIE L\*C\*Hab* colourspace array.
+        *CIE L\\*C\\*Hab* colourspace array.
 
     Returns
     -------
-    tuple
+    ndarray
         *Munsell* *Colorlab* specification.
-
-    Notes
-    -----
-    -   Input :math:`L^*` is in domain [0, 100].
 
     References
     ----------
-    -   :cite:`Centore2014u`
+    :cite:`Centore2014u`
 
     Examples
     --------
     >>> LCHab = np.array([100, 17.50664796, 244.93046842])
     >>> LCHab_to_munsell_specification(LCHab)  # doctest: +ELLIPSIS
-    (8.0362412..., 10.0, 3.5013295..., 1)
+    array([  8.0362412...,  10.        ,   3.5013295...,   1.        ])
     """
 
-    L, C, Hab = np.ravel(LCHab)
+    L, C, Hab = tsplit(LCHab)
 
     if Hab == 0:
         code = 8
@@ -1942,7 +2201,7 @@ def LCHab_to_munsell_specification(LCHab):
     value = L / 10
     chroma = C / 5
 
-    return hue, value, chroma, code
+    return as_float_array([hue, value, chroma, code])
 
 
 def maximum_chroma_from_renotation(hue, value, code):
@@ -1967,7 +2226,7 @@ def maximum_chroma_from_renotation(hue, value, code):
 
     References
     ----------
-    -   :cite:`Centore2014r`
+    :cite:`Centore2014r`
 
     Examples
     --------
@@ -1980,7 +2239,7 @@ def maximum_chroma_from_renotation(hue, value, code):
         return 0
 
     assert 1 <= value <= 10, (
-        '"{0}" value must be in domain [1, 10]!'.format(value))
+        '"{0}" value must be normalised to domain [1, 10]!'.format(value))
 
     if value % 1 == 0:
         value_minus = value
@@ -1994,18 +2253,18 @@ def maximum_chroma_from_renotation(hue, value, code):
     hue_ccw, code_ccw = hue_ccw
 
     maximum_chromas = _munsell_maximum_chromas_from_renotation()
-    spc_for_indexes = [chroma[0] for chroma in maximum_chromas]
+    specification_for_indexes = [chroma[0] for chroma in maximum_chromas]
 
-    ma_limit_mcw = maximum_chromas[spc_for_indexes.index((hue_cw, value_minus,
-                                                          code_cw))][1]
-    ma_limit_mccw = maximum_chromas[spc_for_indexes.index((
-        hue_ccw, value_minus, code_ccw))][1]
+    ma_limit_mcw = maximum_chromas[specification_for_indexes.index(
+        (hue_cw, value_minus, code_cw))][1]
+    ma_limit_mccw = maximum_chromas[specification_for_indexes.index(
+        (hue_ccw, value_minus, code_ccw))][1]
 
     if value_plus <= 9:
-        ma_limit_pcw = maximum_chromas[spc_for_indexes.index((
-            hue_cw, value_plus, code_cw))][1]
-        ma_limit_pccw = maximum_chromas[spc_for_indexes.index((
-            hue_ccw, value_plus, code_ccw))][1]
+        ma_limit_pcw = maximum_chromas[specification_for_indexes.index(
+            (hue_cw, value_plus, code_cw))][1]
+        ma_limit_pccw = maximum_chromas[specification_for_indexes.index(
+            (hue_ccw, value_plus, code_ccw))][1]
         max_chroma = min(ma_limit_mcw, ma_limit_mccw, ma_limit_pcw,
                          ma_limit_pccw)
     else:
@@ -2026,7 +2285,7 @@ def munsell_specification_to_xy(specification):
 
     Parameters
     ----------
-    specification : numeric or tuple
+    specification : array_like
         *Munsell* *Colorlab* specification.
 
     Returns
@@ -2034,24 +2293,22 @@ def munsell_specification_to_xy(specification):
     ndarray
         *xy* chromaticity coordinates.
 
-    Notes
-    -----
-    -   Input *Munsell* *Colorlab* specification value must be an integer in
-        domain [0, 10].
-    -   Output *xy* chromaticity coordinates are in range [0, 1].
-
     References
     ----------
-    -   :cite:`Centore2014q`
+    :cite:`Centore2014q`
 
     Examples
     --------
     >>> # Doctests ellipsis for Python 2.x compatibility.
-    >>> munsell_specification_to_xy((2.1, 8.0, 17.9, 4))  # doctest: +ELLIPSIS
-    array([ 0.440063...,  0.5522428...])
-    >>> munsell_specification_to_xy(8)  # doctest: +ELLIPSIS
+    >>> munsell_specification_to_xy((2.1, 8.0, 17.9, 4))
+    ... # doctest: +ELLIPSIS
+    array([ 0.4400632...,  0.5522428...])
+    >>> munsell_specification_to_xy((np.nan, 8, np.nan, np.nan))
+    ... # doctest: +ELLIPSIS
     array([ 0.31006...,  0.31616...])
     """
+
+    specification = normalize_munsell_specification(specification)
 
     if is_grey_munsell_colour(specification):
         return MUNSELL_DEFAULT_ILLUMINANT_CHROMATICITY_COORDINATES
@@ -2059,8 +2316,8 @@ def munsell_specification_to_xy(specification):
         hue, value, chroma, code = specification
 
         assert 0 <= value <= 10, (
-            '"{0}" specification value must be in domain [0, 10]!'.format(
-                specification))
+            '"{0}" specification value must be normalised to domain '
+            '[0, 10]!'.format(specification))
         assert is_integer(value), (
             '"{0}" specification value must be an integer!'.format(
                 specification))
@@ -2094,4 +2351,4 @@ def munsell_specification_to_xy(specification):
             y = LinearInterpolator((chroma_minus, chroma_plus),
                                    (y_minus, y_plus))(chroma)
 
-        return np.array([x, y])
+        return as_float_array([x, y])

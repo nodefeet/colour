@@ -56,8 +56,16 @@ print('\n')
 message_box(('Computing "Delta E" with "CMC" method from given "CIE L*a*b*" '
              'colourspace matrices with imperceptibility threshold:\n'
              '\n\t{0}\n\t{1}'.format(Lab1, Lab2)))
-print(colour.delta_E(Lab1, Lab2, method='CMC', l=1))
-print(colour.difference.delta_E_CMC(Lab1, Lab2, l=1))
+print(colour.delta_E(Lab1, Lab2, method='CMC', l=1))  # noqa
+print(colour.difference.delta_E_CMC(Lab1, Lab2, l=1))  # noqa
+
+print('\n')
+
+message_box(('Computing "Delta E" with "DIN99" method from given '
+             '"CIE L*a*b*" colourspace matrices:\n'
+             '\n\t{0}\n\t{1}'.format(Lab1, Lab2)))
+print(colour.delta_E(Lab1, Lab2, method='DIN99'))
+print(colour.difference.delta_E_DIN99(Lab1, Lab2))
 
 print('\n')
 
@@ -67,7 +75,7 @@ message_box(('Computing "Delta E" with "Luo et al. (2006)" "CAM02-LCD" method '
              'from given "J\'a\'b\'" arrays:\n'
              '\n\t{0}\n\t{1}'.format(Jpapbp_1, Jpapbp_2)))
 print(colour.delta_E(Jpapbp_1, Jpapbp_2, method='CAM02-LCD'))
-print(colour.delta_E_CAM02LCD(Jpapbp_1, Jpapbp_2))
+print(colour.difference.delta_E_CAM02LCD(Jpapbp_1, Jpapbp_2))
 
 print('\n')
 
@@ -75,7 +83,7 @@ message_box(('Computing "Delta E" with "Luo et al. (2006)" "CAM02-SCD" method '
              'from given "J\'a\'b\'" arrays:\n'
              '\n\t{0}\n\t{1}'.format(Jpapbp_1, Jpapbp_2)))
 print(colour.delta_E(Jpapbp_1, Jpapbp_2, method='CAM02-SCD'))
-print(colour.delta_E_CAM02SCD(Jpapbp_1, Jpapbp_2))
+print(colour.difference.delta_E_CAM02SCD(Jpapbp_1, Jpapbp_2))
 
 print('\n')
 
@@ -85,7 +93,7 @@ message_box(('Computing "Delta E" with "Li et al. (2016)" "CAM02-LCD" method '
              'from given "J\'a\'b\'" arrays:\n'
              '\n\t{0}\n\t{1}'.format(Jpapbp_1, Jpapbp_2)))
 print(colour.delta_E(Jpapbp_1, Jpapbp_2, method='CAM16-LCD'))
-print(colour.delta_E_CAM16LCD(Jpapbp_1, Jpapbp_2))
+print(colour.difference.delta_E_CAM16LCD(Jpapbp_1, Jpapbp_2))
 
 print('\n')
 
@@ -93,4 +101,4 @@ message_box(('Computing "Delta E" with "Li et al. (2016)" "CAM16-SCD" method '
              'from given "J\'a\'b\'" arrays:\n'
              '\n\t{0}\n\t{1}'.format(Jpapbp_1, Jpapbp_2)))
 print(colour.delta_E(Jpapbp_1, Jpapbp_2, method='CAM16-SCD'))
-print(colour.delta_E_CAM16SCD(Jpapbp_1, Jpapbp_2))
+print(colour.difference.delta_E_CAM16SCD(Jpapbp_1, Jpapbp_2))

@@ -16,28 +16,28 @@ from colour.phenomena.rayleigh import (
     F_air_Bates1984, F_air_Bodhaine1999, molecular_density,
     mean_molecular_weights, gravity_List1968)
 from colour.phenomena import (scattering_cross_section, rayleigh_optical_depth,
-                              rayleigh_scattering_spd)
+                              sd_rayleigh_scattering)
 from colour.utilities import ignore_numpy_errors
 
 __author__ = 'Colour Developers'
-__copyright__ = 'Copyright (C) 2013-2018 - Colour Developers'
-__license__ = 'New BSD License - http://opensource.org/licenses/BSD-3-Clause'
+__copyright__ = 'Copyright (C) 2013-2019 - Colour Developers'
+__license__ = 'New BSD License - https://opensource.org/licenses/BSD-3-Clause'
 __maintainer__ = 'Colour Developers'
 __email__ = 'colour-science@googlegroups.com'
 __status__ = 'Production'
 
 __all__ = [
-    'RAYLEIGH_SCATTERING_SPD_DATA', 'TestAirRefractionIndexPenndorf1957',
+    'RAYLEIGH_SCATTERING_SD_DATA', 'TestAirRefractionIndexPenndorf1957',
     'TestAirRefractionIndexEdlen1966', 'TestAirRefractionIndexPeck1972',
     'TestAirRefractionIndexBodhaine1999', 'TestN2Depolarisation',
     'TestO2Depolarisation', 'TestF_airPenndorf1957', 'TestF_airYoung1981',
     'TestF_airBates1984', 'TestF_airBodhaine1999', 'TestMolecularDensity',
     'TestMeanMolecularWeights', 'TestGravityList1968',
     'TestScatteringCrossSection', 'TestRayleighOpticalDepth',
-    'TestRayleighScatteringSpd'
+    'TestSdRayleighScattering'
 ]
 
-RAYLEIGH_SCATTERING_SPD_DATA = (
+RAYLEIGH_SCATTERING_SD_DATA = (
     0.59910134,
     0.59217069,
     0.58534101,
@@ -495,9 +495,7 @@ air_refraction_index_Penndorf1957` definition n-dimensional arrays support.
         """
 
         wl = 0.360
-        n = 1.000285316795146
-        np.testing.assert_almost_equal(
-            air_refraction_index_Penndorf1957(wl), n, decimal=7)
+        n = air_refraction_index_Penndorf1957(wl)
 
         wl = np.tile(wl, 6)
         n = np.tile(n, 6)
@@ -559,9 +557,7 @@ air_refraction_index_Edlen1966` definition n-dimensional arrays support.
         """
 
         wl = 0.360
-        n = 1.000285308809879
-        np.testing.assert_almost_equal(
-            air_refraction_index_Edlen1966(wl), n, decimal=7)
+        n = air_refraction_index_Edlen1966(wl)
 
         wl = np.tile(wl, 6)
         n = np.tile(n, 6)
@@ -617,9 +613,7 @@ class TestAirRefractionIndexPeck1972(unittest.TestCase):
         """
 
         wl = 0.360
-        n = 1.000285310285056
-        np.testing.assert_almost_equal(
-            air_refraction_index_Peck1972(wl), n, decimal=7)
+        n = air_refraction_index_Peck1972(wl)
 
         wl = np.tile(wl, 6)
         n = np.tile(n, 6)
@@ -696,9 +690,7 @@ air_refraction_index_Bodhaine1999` definition n-dimensional arrays support.
         """
 
         wl = 0.360
-        n = 1.000285310285056
-        np.testing.assert_almost_equal(
-            air_refraction_index_Bodhaine1999(wl), n, decimal=7)
+        n = air_refraction_index_Bodhaine1999(wl)
 
         wl = np.tile(wl, 6)
         n = np.tile(n, 6)
@@ -757,8 +749,7 @@ class TestN2Depolarisation(unittest.TestCase):
         """
 
         wl = 0.360
-        n = 1.036445987654321
-        np.testing.assert_almost_equal(N2_depolarisation(wl), n, decimal=7)
+        n = N2_depolarisation(wl)
 
         wl = np.tile(wl, 6)
         n = np.tile(n, 6)
@@ -809,8 +800,7 @@ class TestO2Depolarisation(unittest.TestCase):
         """
 
         wl = 0.360
-        n = 1.115307746532541
-        np.testing.assert_almost_equal(O2_depolarisation(wl), n, decimal=7)
+        n = O2_depolarisation(wl)
 
         wl = np.tile(wl, 6)
         n = np.tile(n, 6)
@@ -855,8 +845,7 @@ class TestF_airPenndorf1957(unittest.TestCase):
         """
 
         wl = 0.360
-        n = 1.0608
-        np.testing.assert_almost_equal(F_air_Penndorf1957(wl), n, decimal=7)
+        n = F_air_Penndorf1957(wl)
 
         wl = np.tile(wl, 6)
         n = np.tile(n, 6)
@@ -900,8 +889,7 @@ class TestF_airYoung1981(unittest.TestCase):
         """
 
         wl = 0.360
-        n = 1.0480
-        np.testing.assert_almost_equal(F_air_Young1981(wl), n, decimal=7)
+        n = F_air_Young1981(wl)
 
         wl = np.tile(wl, 6)
         n = np.tile(n, 6)
@@ -952,8 +940,7 @@ class TestF_airBates1984(unittest.TestCase):
         """
 
         wl = 0.360
-        n = 1.051997277711708
-        np.testing.assert_almost_equal(F_air_Bates1984(wl), n, decimal=7)
+        n = F_air_Bates1984(wl)
 
         wl = np.tile(wl, 6)
         n = np.tile(n, 6)
@@ -1014,8 +1001,7 @@ class TestF_airBodhaine1999(unittest.TestCase):
         """
 
         wl = 0.360
-        n = 1.125664021159081
-        np.testing.assert_almost_equal(F_air_Bodhaine1999(wl), n, decimal=7)
+        n = F_air_Bodhaine1999(wl)
 
         wl = np.tile(wl, 6)
         n = np.tile(n, 6)
@@ -1071,9 +1057,7 @@ class TestMolecularDensity(unittest.TestCase):
         """
 
         temperature = 200
-        N_s = 3.669449208173649e+19
-        np.testing.assert_almost_equal(
-            molecular_density(temperature), N_s, decimal=7)
+        N_s = molecular_density(temperature)
 
         temperature = np.tile(temperature, 6)
         N_s = np.tile(N_s, 6)
@@ -1127,9 +1111,7 @@ class TestMeanMolecularWeights(unittest.TestCase):
         """
 
         CO2_c = 300
-        m_a = 28.964016679999997
-        np.testing.assert_almost_equal(
-            mean_molecular_weights(CO2_c), m_a, decimal=7)
+        m_a = mean_molecular_weights(CO2_c)
 
         CO2_c = np.tile(CO2_c, 6)
         m_a = np.tile(m_a, 6)
@@ -1168,13 +1150,14 @@ class TestGravityList1968(unittest.TestCase):
         Tests :func:`colour.phenomena.rayleigh.gravity_List1968` definition.
         """
 
-        self.assertAlmostEqual(gravity_List1968(0, 0), 978.03560706, places=7)
+        self.assertAlmostEqual(
+            gravity_List1968(0.0, 0.0), 978.03560706, places=7)
 
         self.assertAlmostEqual(
-            gravity_List1968(45, 1500), 980.15334386, places=7)
+            gravity_List1968(45.0, 1500.0), 980.15334386, places=7)
 
         self.assertAlmostEqual(
-            gravity_List1968(48.8567, 35), 980.95241784, places=7)
+            gravity_List1968(48.8567, 35.0), 980.95241784, places=7)
 
     def test_n_dimensional_gravity_List1968(self):
         """
@@ -1273,9 +1256,7 @@ class TestScatteringCrossSection(unittest.TestCase):
         """
 
         wl = 360 * 10e-8
-        sigma = 2.781289234802031e-26
-        np.testing.assert_almost_equal(
-            scattering_cross_section(wl), sigma, decimal=32)
+        sigma = scattering_cross_section(wl)
 
         sigma = np.tile(sigma, 6)
         np.testing.assert_almost_equal(
@@ -1394,9 +1375,7 @@ class TestRayleighOpticalDepth(unittest.TestCase):
         """
 
         wl = 360 * 10e-8
-        T_R = 0.599101336848028
-        np.testing.assert_almost_equal(
-            rayleigh_optical_depth(wl), T_R, decimal=7)
+        T_R = rayleigh_optical_depth(wl)
 
         T_R = np.tile(T_R, 6)
         np.testing.assert_almost_equal(
@@ -1429,21 +1408,21 @@ class TestRayleighOpticalDepth(unittest.TestCase):
                                    latitude, altitude)
 
 
-class TestRayleighScatteringSpd(unittest.TestCase):
+class TestSdRayleighScattering(unittest.TestCase):
     """
-    Defines :func:`colour.phenomena.rayleigh.rayleigh_scattering_spd`
+    Defines :func:`colour.phenomena.rayleigh.sd_rayleigh_scattering`
     definition unit tests methods.
     """
 
-    def test_rayleigh_scattering_spd(self):
+    def test_sd_rayleigh_scattering(self):
         """
-        Tests :func:`colour.phenomena.rayleigh.rayleigh_scattering_spd`
+        Tests :func:`colour.phenomena.rayleigh.sd_rayleigh_scattering`
         definition.
         """
 
         np.testing.assert_almost_equal(
-            rayleigh_scattering_spd().values,
-            RAYLEIGH_SCATTERING_SPD_DATA,
+            sd_rayleigh_scattering().values,
+            RAYLEIGH_SCATTERING_SD_DATA,
             decimal=7)
 
 

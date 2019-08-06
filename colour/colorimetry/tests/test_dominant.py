@@ -17,8 +17,8 @@ from colour.models import XYZ_to_xy
 from colour.utilities import ignore_numpy_errors
 
 __author__ = 'Colour Developers'
-__copyright__ = 'Copyright (C) 2013-2018 - Colour Developers'
-__license__ = 'New BSD License - http://opensource.org/licenses/BSD-3-Clause'
+__copyright__ = 'Copyright (C) 2013-2019 - Colour Developers'
+__license__ = 'New BSD License - https://opensource.org/licenses/BSD-3-Clause'
 __maintainer__ = 'Colour Developers'
 __email__ = 'colour-science@googlegroups.com'
 __status__ = 'Production'
@@ -52,20 +52,20 @@ closest_spectral_locus_wavelength` definition units tests methods.
 closest_spectral_locus_wavelength` definition.
         """
 
-        xy = np.array([0.26415, 0.37770])
+        xy = np.array([0.54369557, 0.32107944])
         xy_n = D65
         i_wl, xy_wl = closest_spectral_locus_wavelength(xy, xy_n, self._xy_s)
 
-        self.assertEqual(i_wl, 144)
+        self.assertEqual(i_wl, np.array(256))
         np.testing.assert_almost_equal(
-            xy_wl, np.array([0.00369694, 0.63895775]), decimal=7)
+            xy_wl, np.array([0.68354746, 0.31628409]), decimal=7)
 
-        xy = np.array([0.35000, 0.25000])
+        xy = np.array([0.37605506, 0.24452225])
         i_wl, xy_wl = closest_spectral_locus_wavelength(xy, xy_n, self._xy_s)
 
-        self.assertEqual(i_wl, 0)
+        self.assertEqual(i_wl, np.array(248))
         np.testing.assert_almost_equal(
-            xy_wl, np.array([0.41333146, 0.11586634]), decimal=7)
+            xy_wl, np.array([0.45723147, 0.13628148]), decimal=7)
 
     def test_n_dimensional_closest_spectral_locus_wavelength(self):
         """
@@ -73,28 +73,28 @@ closest_spectral_locus_wavelength` definition.
 closest_spectral_locus_wavelength` definition n-dimensional arrays support.
         """
 
-        xy = np.array([0.26415, 0.37770])
+        xy = np.array([0.54369557, 0.32107944])
         xy_n = D65
         i_wl, xy_wl = closest_spectral_locus_wavelength(xy, xy_n, self._xy_s)
-        i_wl_r, xy_wl_r = 144, np.array([0.00369694, 0.63895775])
-        np.testing.assert_almost_equal(i_wl, i_wl_r, decimal=7)
-        np.testing.assert_almost_equal(xy_wl, xy_wl_r)
+        i_wl_r, xy_wl_r = np.array(256), np.array([0.68354746, 0.31628409])
+        np.testing.assert_almost_equal(i_wl, i_wl_r)
+        np.testing.assert_almost_equal(xy_wl, xy_wl_r, decimal=7)
 
         xy = np.tile(xy, (6, 1))
         xy_n = np.tile(xy_n, (6, 1))
         i_wl, xy_wl = closest_spectral_locus_wavelength(xy, xy_n, self._xy_s)
         i_wl_r = np.tile(i_wl_r, 6)
         xy_wl_r = np.tile(xy_wl_r, (6, 1))
-        np.testing.assert_almost_equal(i_wl, i_wl_r, decimal=7)
-        np.testing.assert_almost_equal(xy_wl, xy_wl_r)
+        np.testing.assert_almost_equal(i_wl, i_wl_r)
+        np.testing.assert_almost_equal(xy_wl, xy_wl_r, decimal=7)
 
         xy = np.reshape(xy, (2, 3, 2))
         xy_n = np.reshape(xy_n, (2, 3, 2))
         i_wl, xy_wl = closest_spectral_locus_wavelength(xy, xy_n, self._xy_s)
         i_wl_r = np.reshape(i_wl_r, (2, 3))
         xy_wl_r = np.reshape(xy_wl_r, (2, 3, 2))
-        np.testing.assert_almost_equal(i_wl, i_wl_r, decimal=7)
-        np.testing.assert_almost_equal(xy_wl, xy_wl_r)
+        np.testing.assert_almost_equal(i_wl, i_wl_r)
+        np.testing.assert_almost_equal(xy_wl, xy_wl_r, decimal=7)
 
     @ignore_numpy_errors
     def test_nan_closest_spectral_locus_wavelength(self):
@@ -124,24 +124,24 @@ class TestDominantWavelength(unittest.TestCase):
         definition.
         """
 
-        xy = np.array([0.26415, 0.37770])
+        xy = np.array([0.54369557, 0.32107944])
         xy_n = D65
         wl, xy_wl, xy_cwl = dominant_wavelength(xy, xy_n, CIE_2_1931_CMFS)
 
-        self.assertEqual(wl, 504)
+        self.assertEqual(wl, np.array(616.0))
         np.testing.assert_almost_equal(
-            xy_wl, np.array([0.00369694, 0.63895775]), decimal=7)
+            xy_wl, np.array([0.68354746, 0.31628409]), decimal=7)
         np.testing.assert_almost_equal(
-            xy_cwl, np.array([0.00369694, 0.63895775]), decimal=7)
+            xy_cwl, np.array([0.68354746, 0.31628409]), decimal=7)
 
-        xy = np.array([0.35000, 0.25000])
+        xy = np.array([0.37605506, 0.24452225])
         i_wl, xy_wl, xy_cwl = dominant_wavelength(xy, xy_n, CIE_2_1931_CMFS)
 
-        self.assertEqual(i_wl, -520)
+        self.assertEqual(i_wl, np.array(-509.0))
         np.testing.assert_almost_equal(
-            xy_wl, np.array([0.41333146, 0.11586634]), decimal=7)
+            xy_wl, np.array([0.45723147, 0.13628148]), decimal=7)
         np.testing.assert_almost_equal(
-            xy_cwl, np.array([0.07435534, 0.83380505]), decimal=7)
+            xy_cwl, np.array([0.01040962, 0.73207453]), decimal=7)
 
     def test_n_dimensional_dominant_wavelength(self):
         """
@@ -149,14 +149,15 @@ class TestDominantWavelength(unittest.TestCase):
         definition n-dimensional arrays support.
         """
 
-        xy = np.array([0.26415, 0.37770])
+        xy = np.array([0.54369557, 0.32107944])
         xy_n = D65
         wl, xy_wl, xy_cwl = dominant_wavelength(xy, xy_n, CIE_2_1931_CMFS)
-        wl_r, xy_wl_r, xy_cwl_r = (504, np.array([0.00369694, 0.63895775]),
-                                   np.array([0.00369694, 0.63895775]))
-        np.testing.assert_almost_equal(wl, wl_r, decimal=7)
-        np.testing.assert_almost_equal(xy_wl, xy_wl_r)
-        np.testing.assert_almost_equal(xy_cwl, xy_cwl_r)
+        wl_r, xy_wl_r, xy_cwl_r = (np.array(616.0),
+                                   np.array([0.68354746, 0.31628409]),
+                                   np.array([0.68354746, 0.31628409]))
+        np.testing.assert_almost_equal(wl, wl_r)
+        np.testing.assert_almost_equal(xy_wl, xy_wl_r, decimal=7)
+        np.testing.assert_almost_equal(xy_cwl, xy_cwl_r, decimal=7)
 
         xy = np.tile(xy, (6, 1))
         xy_n = np.tile(xy_n, (6, 1))
@@ -164,9 +165,9 @@ class TestDominantWavelength(unittest.TestCase):
         wl_r = np.tile(wl_r, 6)
         xy_wl_r = np.tile(xy_wl_r, (6, 1))
         xy_cwl_r = np.tile(xy_cwl_r, (6, 1))
-        np.testing.assert_almost_equal(wl, wl_r, decimal=7)
-        np.testing.assert_almost_equal(xy_wl, xy_wl_r)
-        np.testing.assert_almost_equal(xy_cwl, xy_cwl_r)
+        np.testing.assert_almost_equal(wl, wl_r)
+        np.testing.assert_almost_equal(xy_wl, xy_wl_r, decimal=7)
+        np.testing.assert_almost_equal(xy_cwl, xy_cwl_r, decimal=7)
 
         xy = np.reshape(xy, (2, 3, 2))
         xy_n = np.reshape(xy_n, (2, 3, 2))
@@ -174,9 +175,9 @@ class TestDominantWavelength(unittest.TestCase):
         wl_r = np.reshape(wl_r, (2, 3))
         xy_wl_r = np.reshape(xy_wl_r, (2, 3, 2))
         xy_cwl_r = np.reshape(xy_cwl_r, (2, 3, 2))
-        np.testing.assert_almost_equal(wl, wl_r, decimal=7)
-        np.testing.assert_almost_equal(xy_wl, xy_wl_r)
-        np.testing.assert_almost_equal(xy_cwl, xy_cwl_r)
+        np.testing.assert_almost_equal(wl, wl_r)
+        np.testing.assert_almost_equal(xy_wl, xy_wl_r, decimal=7)
+        np.testing.assert_almost_equal(xy_cwl, xy_cwl_r, decimal=7)
 
     @ignore_numpy_errors
     def test_nan_dominant_wavelength(self):
@@ -206,25 +207,25 @@ class TestComplementaryWavelength(unittest.TestCase):
         definition.
         """
 
-        xy = np.array([0.26415, 0.37770])
+        xy = np.array([0.54369557, 0.32107944])
         xy_n = D65
         wl, xy_wl, xy_cwl = complementary_wavelength(xy, xy_n, CIE_2_1931_CMFS)
 
-        self.assertEqual(wl, -504)
+        self.assertEqual(wl, np.array(492.0))
         np.testing.assert_almost_equal(
-            xy_wl, np.array([0.48974944, 0.15140355]), decimal=7)
+            xy_wl, np.array([0.03647950, 0.33847127]), decimal=7)
         np.testing.assert_almost_equal(
-            xy_cwl, np.array([0.00369694, 0.63895775]), decimal=7)
+            xy_cwl, np.array([0.03647950, 0.33847127]), decimal=7)
 
-        xy = np.array([0.35000, 0.25000])
+        xy = np.array([0.37605506, 0.24452225])
         i_wl, xy_wl, xy_cwl = complementary_wavelength(xy, xy_n,
                                                        CIE_2_1931_CMFS)
 
-        self.assertEqual(i_wl, 520)
+        self.assertEqual(i_wl, np.array(509.0))
         np.testing.assert_almost_equal(
-            xy_wl, np.array([0.07435534, 0.83380505]), decimal=7)
+            xy_wl, np.array([0.01040962, 0.73207453]), decimal=7)
         np.testing.assert_almost_equal(
-            xy_cwl, np.array([0.07435534, 0.83380505]), decimal=7)
+            xy_cwl, np.array([0.01040962, 0.73207453]), decimal=7)
 
     def test_n_dimensional_complementary_wavelength(self):
         """
@@ -232,14 +233,15 @@ class TestComplementaryWavelength(unittest.TestCase):
         definition n-dimensional arrays support.
         """
 
-        xy = np.array([0.26415, 0.37770])
+        xy = np.array([0.54369557, 0.32107944])
         xy_n = D65
         wl, xy_wl, xy_cwl = complementary_wavelength(xy, xy_n, CIE_2_1931_CMFS)
-        wl_r, xy_wl_r, xy_cwl_r = (-504, np.array([0.48974944, 0.15140355]),
-                                   np.array([0.00369694, 0.63895775]))
-        np.testing.assert_almost_equal(wl, wl_r, decimal=7)
-        np.testing.assert_almost_equal(xy_wl, xy_wl_r)
-        np.testing.assert_almost_equal(xy_cwl, xy_cwl_r)
+        wl_r, xy_wl_r, xy_cwl_r = (np.array(492.0),
+                                   np.array([0.03647950, 0.33847127]),
+                                   np.array([0.03647950, 0.33847127]))
+        np.testing.assert_almost_equal(wl, wl_r)
+        np.testing.assert_almost_equal(xy_wl, xy_wl_r, decimal=7)
+        np.testing.assert_almost_equal(xy_cwl, xy_cwl_r, decimal=7)
 
         xy = np.tile(xy, (6, 1))
         xy_n = np.tile(xy_n, (6, 1))
@@ -247,9 +249,9 @@ class TestComplementaryWavelength(unittest.TestCase):
         wl_r = np.tile(wl_r, 6)
         xy_wl_r = np.tile(xy_wl_r, (6, 1))
         xy_cwl_r = np.tile(xy_cwl_r, (6, 1))
-        np.testing.assert_almost_equal(wl, wl_r, decimal=7)
-        np.testing.assert_almost_equal(xy_wl, xy_wl_r)
-        np.testing.assert_almost_equal(xy_cwl, xy_cwl_r)
+        np.testing.assert_almost_equal(wl, wl_r)
+        np.testing.assert_almost_equal(xy_wl, xy_wl_r, decimal=7)
+        np.testing.assert_almost_equal(xy_cwl, xy_cwl_r, decimal=7)
 
         xy = np.reshape(xy, (2, 3, 2))
         xy_n = np.reshape(xy_n, (2, 3, 2))
@@ -257,9 +259,9 @@ class TestComplementaryWavelength(unittest.TestCase):
         wl_r = np.reshape(wl_r, (2, 3))
         xy_wl_r = np.reshape(xy_wl_r, (2, 3, 2))
         xy_cwl_r = np.reshape(xy_cwl_r, (2, 3, 2))
-        np.testing.assert_almost_equal(wl, wl_r, decimal=7)
-        np.testing.assert_almost_equal(xy_wl, xy_wl_r)
-        np.testing.assert_almost_equal(xy_cwl, xy_cwl_r)
+        np.testing.assert_almost_equal(wl, wl_r)
+        np.testing.assert_almost_equal(xy_wl, xy_wl_r, decimal=7)
+        np.testing.assert_almost_equal(xy_cwl, xy_cwl_r, decimal=7)
 
     @ignore_numpy_errors
     def test_nan_complementary_wavelength(self):
@@ -288,18 +290,18 @@ class TestExcitationPurity(unittest.TestCase):
         Tests :func:`colour.colorimetry.dominant.excitation_purity` definition.
         """
 
-        xy = np.array([0.26415, 0.37770])
+        xy = np.array([0.54369557, 0.32107944])
         xy_n = D65
 
         self.assertAlmostEqual(
             excitation_purity(xy, xy_n, CIE_2_1931_CMFS),
-            0.157118186993525,
+            0.622885671878446,
             places=7)
 
-        xy = np.array([0.35000, 0.25000])
+        xy = np.array([0.37605506, 0.24452225])
         self.assertAlmostEqual(
             excitation_purity(xy, xy_n, CIE_2_1931_CMFS),
-            0.370659424135609,
+            0.438347859215887,
             places=7)
 
     def test_n_dimensional_excitation_purity(self):
@@ -308,11 +310,9 @@ class TestExcitationPurity(unittest.TestCase):
         n-dimensional arrays support.
         """
 
-        xy = np.array([0.26415, 0.37770])
+        xy = np.array([0.54369557, 0.32107944])
         xy_n = D65
-        P_e = 0.157118186993525
-        np.testing.assert_almost_equal(
-            excitation_purity(xy, xy_n, CIE_2_1931_CMFS), P_e, decimal=7)
+        P_e = excitation_purity(xy, xy_n, CIE_2_1931_CMFS)
 
         xy = np.tile(xy, (6, 1))
         xy_n = np.tile(xy_n, (6, 1))
@@ -354,18 +354,18 @@ class TestColorimetricPurity(unittest.TestCase):
         definition.
         """
 
-        xy = np.array([0.26415, 0.37770])
+        xy = np.array([0.54369557, 0.32107944])
         xy_n = D65
 
         self.assertAlmostEqual(
             colorimetric_purity(xy, xy_n, CIE_2_1931_CMFS),
-            0.265797944190812,
+            0.613582813175483,
             places=7)
 
-        xy = np.array([0.35000, 0.25000])
+        xy = np.array([0.37605506, 0.24452225])
         self.assertAlmostEqual(
             colorimetric_purity(xy, xy_n, CIE_2_1931_CMFS),
-            0.171787802162461,
+            0.244307811178847,
             places=7)
 
     def test_n_dimensional_colorimetric_purity(self):
@@ -374,11 +374,9 @@ class TestColorimetricPurity(unittest.TestCase):
         definition n-dimensional arrays support.
         """
 
-        xy = np.array([0.26415, 0.37770])
+        xy = np.array([0.54369557, 0.32107944])
         xy_n = D65
-        P_e = 0.265797944190812
-        np.testing.assert_almost_equal(
-            colorimetric_purity(xy, xy_n, CIE_2_1931_CMFS), P_e, decimal=7)
+        P_e = colorimetric_purity(xy, xy_n, CIE_2_1931_CMFS)
 
         xy = np.tile(xy, (6, 1))
         xy_n = np.tile(xy_n, (6, 1))

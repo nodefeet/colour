@@ -13,11 +13,11 @@ from colour.models.rgb.transfer_functions import (
     log_encoding_REDLog, log_decoding_REDLog, log_encoding_REDLogFilm,
     log_decoding_REDLogFilm, log_encoding_Log3G10, log_decoding_Log3G10,
     log_encoding_Log3G12, log_decoding_Log3G12)
-from colour.utilities import ignore_numpy_errors
+from colour.utilities import domain_range_scale, ignore_numpy_errors
 
 __author__ = 'Colour Developers'
-__copyright__ = 'Copyright (C) 2013-2018 - Colour Developers'
-__license__ = 'New BSD License - http://opensource.org/licenses/BSD-3-Clause'
+__copyright__ = 'Copyright (C) 2013-2019 - Colour Developers'
+__license__ = 'New BSD License - https://opensource.org/licenses/BSD-3-Clause'
 __maintainer__ = 'Colour Developers'
 __email__ = 'colour-science@googlegroups.com'
 __status__ = 'Development'
@@ -56,8 +56,7 @@ log_encoding_REDLog` definition n-dimensional arrays support.
         """
 
         x = 0.18
-        y = 0.637621845988175
-        np.testing.assert_almost_equal(log_encoding_REDLog(x), y, decimal=7)
+        y = log_encoding_REDLog(x)
 
         x = np.tile(x, 6)
         y = np.tile(y, 6)
@@ -70,6 +69,21 @@ log_encoding_REDLog` definition n-dimensional arrays support.
         x = np.reshape(x, (2, 3, 1))
         y = np.reshape(y, (2, 3, 1))
         np.testing.assert_almost_equal(log_encoding_REDLog(x), y, decimal=7)
+
+    def test_domain_range_scale_log_encoding_REDLog(self):
+        """
+        Tests :func:`colour.models.rgb.transfer_functions.red_log.\
+log_encoding_REDLog` definition domain and range scale support.
+        """
+
+        x = 0.18
+        y = log_encoding_REDLog(x)
+
+        d_r = (('reference', 1), (1, 1), (100, 100))
+        for scale, factor in d_r:
+            with domain_range_scale(scale):
+                np.testing.assert_almost_equal(
+                    log_encoding_REDLog(x * factor), y * factor, decimal=7)
 
     @ignore_numpy_errors
     def test_nan_log_encoding_REDLog(self):
@@ -108,8 +122,7 @@ log_decoding_REDLog` definition n-dimensional arrays support.
         """
 
         y = 0.637621845988175
-        x = 0.18
-        np.testing.assert_almost_equal(log_decoding_REDLog(y), x, decimal=7)
+        x = log_decoding_REDLog(y)
 
         y = np.tile(y, 6)
         x = np.tile(x, 6)
@@ -122,6 +135,21 @@ log_decoding_REDLog` definition n-dimensional arrays support.
         y = np.reshape(y, (2, 3, 1))
         x = np.reshape(x, (2, 3, 1))
         np.testing.assert_almost_equal(log_decoding_REDLog(y), x, decimal=7)
+
+    def test_domain_range_scale_log_decoding_REDLog(self):
+        """
+        Tests :func:`colour.models.rgb.transfer_functions.red_log.\
+log_decoding_REDLog` definition domain and range scale support.
+        """
+
+        y = 0.637621845988175
+        x = log_decoding_REDLog(y)
+
+        d_r = (('reference', 1), (1, 1), (100, 100))
+        for scale, factor in d_r:
+            with domain_range_scale(scale):
+                np.testing.assert_almost_equal(
+                    log_decoding_REDLog(y * factor), x * factor, decimal=7)
 
     @ignore_numpy_errors
     def test_nan_log_decoding_REDLog(self):
@@ -162,9 +190,7 @@ log_encoding_REDLogFilm` definition n-dimensional arrays support.
         """
 
         x = 0.18
-        y = 0.457319613085418
-        np.testing.assert_almost_equal(
-            log_encoding_REDLogFilm(x), y, decimal=7)
+        y = log_encoding_REDLogFilm(x)
 
         x = np.tile(x, 6)
         y = np.tile(y, 6)
@@ -180,6 +206,21 @@ log_encoding_REDLogFilm` definition n-dimensional arrays support.
         y = np.reshape(y, (2, 3, 1))
         np.testing.assert_almost_equal(
             log_encoding_REDLogFilm(x), y, decimal=7)
+
+    def test_domain_range_scale_log_encoding_REDLogFilm(self):
+        """
+        Tests :func:`colour.models.rgb.transfer_functions.red_log.\
+log_encoding_REDLogFilm` definition domain and range scale support.
+        """
+
+        x = 0.18
+        y = log_encoding_REDLogFilm(x)
+
+        d_r = (('reference', 1), (1, 1), (100, 100))
+        for scale, factor in d_r:
+            with domain_range_scale(scale):
+                np.testing.assert_almost_equal(
+                    log_encoding_REDLogFilm(x * factor), y * factor, decimal=7)
 
     @ignore_numpy_errors
     def test_nan_log_encoding_REDLogFilm(self):
@@ -220,9 +261,7 @@ log_decoding_REDLogFilm` definition n-dimensional arrays support.
         """
 
         y = 0.457319613085418
-        x = 0.18
-        np.testing.assert_almost_equal(
-            log_decoding_REDLogFilm(y), x, decimal=7)
+        x = log_decoding_REDLogFilm(y)
 
         y = np.tile(y, 6)
         x = np.tile(x, 6)
@@ -238,6 +277,21 @@ log_decoding_REDLogFilm` definition n-dimensional arrays support.
         x = np.reshape(x, (2, 3, 1))
         np.testing.assert_almost_equal(
             log_decoding_REDLogFilm(y), x, decimal=7)
+
+    def test_domain_range_scale_log_decoding_REDLogFilm(self):
+        """
+        Tests :func:`colour.models.rgb.transfer_functions.red_log.\
+log_decoding_REDLogFilm` definition domain and range scale support.
+        """
+
+        y = 0.457319613085418
+        x = log_decoding_REDLogFilm(y)
+
+        d_r = (('reference', 1), (1, 1), (100, 100))
+        for scale, factor in d_r:
+            with domain_range_scale(scale):
+                np.testing.assert_almost_equal(
+                    log_decoding_REDLogFilm(y * factor), x * factor, decimal=7)
 
     @ignore_numpy_errors
     def test_nan_log_decoding_REDLogFilm(self):
@@ -297,36 +351,47 @@ log_encoding_Log3G10` definition n-dimensional arrays support.
         """
 
         x = 0.18
-        y1 = 0.333333644207707
-        y2 = 0.333332912025992
-        np.testing.assert_almost_equal(
-            log_encoding_Log3G10(x, legacy_curve=True), y1, decimal=7)
-        np.testing.assert_almost_equal(
-            log_encoding_Log3G10(x, legacy_curve=False), y2, decimal=7)
+        y_1 = log_encoding_Log3G10(x, legacy_curve=True)
+        y_2 = log_encoding_Log3G10(x, legacy_curve=False)
 
         x = np.tile(x, 6)
-        y1 = np.tile(y1, 6)
-        y2 = np.tile(y2, 6)
+        y_1 = np.tile(y_1, 6)
+        y_2 = np.tile(y_2, 6)
         np.testing.assert_almost_equal(
-            log_encoding_Log3G10(x, legacy_curve=True), y1, decimal=7)
+            log_encoding_Log3G10(x, legacy_curve=True), y_1, decimal=7)
         np.testing.assert_almost_equal(
-            log_encoding_Log3G10(x, legacy_curve=False), y2, decimal=7)
+            log_encoding_Log3G10(x, legacy_curve=False), y_2, decimal=7)
 
         x = np.reshape(x, (2, 3))
-        y1 = np.reshape(y1, (2, 3))
-        y2 = np.reshape(y2, (2, 3))
+        y_1 = np.reshape(y_1, (2, 3))
+        y_2 = np.reshape(y_2, (2, 3))
         np.testing.assert_almost_equal(
-            log_encoding_Log3G10(x, legacy_curve=True), y1, decimal=7)
+            log_encoding_Log3G10(x, legacy_curve=True), y_1, decimal=7)
         np.testing.assert_almost_equal(
-            log_encoding_Log3G10(x, legacy_curve=False), y2, decimal=7)
+            log_encoding_Log3G10(x, legacy_curve=False), y_2, decimal=7)
 
         x = np.reshape(x, (2, 3, 1))
-        y1 = np.reshape(y1, (2, 3, 1))
-        y2 = np.reshape(y2, (2, 3, 1))
+        y_1 = np.reshape(y_1, (2, 3, 1))
+        y_2 = np.reshape(y_2, (2, 3, 1))
         np.testing.assert_almost_equal(
-            log_encoding_Log3G10(x, legacy_curve=True), y1, decimal=7)
+            log_encoding_Log3G10(x, legacy_curve=True), y_1, decimal=7)
         np.testing.assert_almost_equal(
-            log_encoding_Log3G10(x, legacy_curve=False), y2, decimal=7)
+            log_encoding_Log3G10(x, legacy_curve=False), y_2, decimal=7)
+
+    def test_domain_range_scale_log_encoding_Log3G10(self):
+        """
+        Tests :func:`colour.models.rgb.transfer_functions.red_log.\
+log_encoding_Log3G10` definition domain and range scale support.
+        """
+
+        x = 0.18
+        y = log_encoding_Log3G10(x)
+
+        d_r = (('reference', 1), (1, 1), (100, 100))
+        for scale, factor in d_r:
+            with domain_range_scale(scale):
+                np.testing.assert_almost_equal(
+                    log_encoding_Log3G10(x * factor), y * factor, decimal=7)
 
     @ignore_numpy_errors
     def test_nan_log_encoding_Log3G10(self):
@@ -389,37 +454,52 @@ log_decoding_Log3G10` definition.
 log_decoding_Log3G10` definition n-dimensional arrays support.
         """
 
-        y1 = 0.333333644207707
-        y2 = 0.333332912025992
-        x = 0.18
-        np.testing.assert_almost_equal(
-            log_decoding_Log3G10(y1, legacy_curve=True), x, decimal=7)
-        np.testing.assert_almost_equal(
-            log_decoding_Log3G10(y2, legacy_curve=False), x, decimal=7)
+        y_1 = 0.333333644207707
+        y_2 = 0.333332912025992
+        x_1 = log_decoding_Log3G10(y_1, legacy_curve=True)
+        x_2 = log_decoding_Log3G10(y_2, legacy_curve=False)
 
-        y1 = np.tile(y1, 6)
-        y2 = np.tile(y2, 6)
-        x = np.tile(x, 6)
+        y_1 = np.tile(y_1, 6)
+        y_2 = np.tile(y_2, 6)
+        x_1 = np.tile(x_1, 6)
+        x_2 = np.tile(x_2, 6)
         np.testing.assert_almost_equal(
-            log_decoding_Log3G10(y1, legacy_curve=True), x, decimal=7)
+            log_decoding_Log3G10(y_1, legacy_curve=True), x_1, decimal=7)
         np.testing.assert_almost_equal(
-            log_decoding_Log3G10(y2, legacy_curve=False), x, decimal=7)
+            log_decoding_Log3G10(y_2, legacy_curve=False), x_2, decimal=7)
 
-        y1 = np.reshape(y1, (2, 3))
-        y2 = np.reshape(y2, (2, 3))
-        x = np.reshape(x, (2, 3))
+        y_1 = np.reshape(y_1, (2, 3))
+        y_2 = np.reshape(y_2, (2, 3))
+        x_1 = np.reshape(x_1, (2, 3))
+        x_2 = np.reshape(x_2, (2, 3))
         np.testing.assert_almost_equal(
-            log_decoding_Log3G10(y1, legacy_curve=True), x, decimal=7)
+            log_decoding_Log3G10(y_1, legacy_curve=True), x_1, decimal=7)
         np.testing.assert_almost_equal(
-            log_decoding_Log3G10(y2, legacy_curve=False), x, decimal=7)
+            log_decoding_Log3G10(y_2, legacy_curve=False), x_2, decimal=7)
 
-        y1 = np.reshape(y1, (2, 3, 1))
-        y2 = np.reshape(y2, (2, 3, 1))
-        x = np.reshape(x, (2, 3, 1))
+        y_1 = np.reshape(y_1, (2, 3, 1))
+        y_2 = np.reshape(y_2, (2, 3, 1))
+        x_1 = np.reshape(x_1, (2, 3, 1))
+        x_2 = np.reshape(x_2, (2, 3, 1))
         np.testing.assert_almost_equal(
-            log_decoding_Log3G10(y1, legacy_curve=True), x, decimal=7)
+            log_decoding_Log3G10(y_1, legacy_curve=True), x_1, decimal=7)
         np.testing.assert_almost_equal(
-            log_decoding_Log3G10(y2, legacy_curve=False), x, decimal=7)
+            log_decoding_Log3G10(y_2, legacy_curve=False), x_2, decimal=7)
+
+    def test_domain_range_scale_log_decoding_Log3G10(self):
+        """
+        Tests :func:`colour.models.rgb.transfer_functions.red_log.\
+log_decoding_Log3G10` definition domain and range scale support.
+        """
+
+        y = 0.333333644207707
+        x = log_decoding_Log3G10(y)
+
+        d_r = (('reference', 1), (1, 1), (100, 100))
+        for scale, factor in d_r:
+            with domain_range_scale(scale):
+                np.testing.assert_almost_equal(
+                    log_decoding_Log3G10(y * factor), x * factor, decimal=7)
 
     @ignore_numpy_errors
     def test_nan_log_decoding_Log3G10(self):
@@ -466,8 +546,7 @@ log_encoding_Log3G12` definition n-dimensional arrays support.
         """
 
         x = 0.18
-        y = 0.333332662015923
-        np.testing.assert_almost_equal(log_encoding_Log3G12(x), y, decimal=7)
+        y = log_encoding_Log3G12(x)
 
         x = np.tile(x, 6)
         y = np.tile(y, 6)
@@ -480,6 +559,21 @@ log_encoding_Log3G12` definition n-dimensional arrays support.
         x = np.reshape(x, (2, 3, 1))
         y = np.reshape(y, (2, 3, 1))
         np.testing.assert_almost_equal(log_encoding_Log3G12(x), y, decimal=7)
+
+    def test_domain_range_scale_log_encoding_Log3G12(self):
+        """
+        Tests :func:`colour.models.rgb.transfer_functions.red_log.\
+log_encoding_Log3G12` definition domain and range scale support.
+        """
+
+        x = 0.18
+        y = log_encoding_Log3G12(x)
+
+        d_r = (('reference', 1), (1, 1), (100, 100))
+        for scale, factor in d_r:
+            with domain_range_scale(scale):
+                np.testing.assert_almost_equal(
+                    log_encoding_Log3G12(x * factor), y * factor, decimal=7)
 
     @ignore_numpy_errors
     def test_nan_log_encoding_Log3G12(self):
@@ -522,8 +616,7 @@ log_decoding_Log3G12` definition n-dimensional arrays support.
         """
 
         y = 0.333332662015923
-        x = 0.18
-        np.testing.assert_almost_equal(log_decoding_Log3G12(y), x, decimal=7)
+        x = log_decoding_Log3G12(y)
 
         y = np.tile(y, 6)
         x = np.tile(x, 6)
@@ -536,6 +629,21 @@ log_decoding_Log3G12` definition n-dimensional arrays support.
         y = np.reshape(y, (2, 3, 1))
         x = np.reshape(x, (2, 3, 1))
         np.testing.assert_almost_equal(log_decoding_Log3G12(y), x, decimal=7)
+
+    def test_domain_range_scale_log_decoding_Log3G12(self):
+        """
+        Tests :func:`colour.models.rgb.transfer_functions.red_log.\
+log_decoding_Log3G12` definition domain and range scale support.
+        """
+
+        y = 0.18
+        x = log_decoding_Log3G12(y)
+
+        d_r = (('reference', 1), (1, 1), (100, 100))
+        for scale, factor in d_r:
+            with domain_range_scale(scale):
+                np.testing.assert_almost_equal(
+                    log_decoding_Log3G12(y * factor), x * factor, decimal=7)
 
     @ignore_numpy_errors
     def test_nan_log_decoding_Log3G12(self):

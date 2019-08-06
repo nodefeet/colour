@@ -7,7 +7,10 @@ from __future__ import division, unicode_literals
 
 import numpy as np
 import unittest
+from itertools import permutations
 
+from colour.notation.munsell import (
+    MUNSELL_DEFAULT_ILLUMINANT_CHROMATICITY_COORDINATES)
 from colour.notation.munsell import (parse_munsell_colour,
                                      is_grey_munsell_colour,
                                      normalize_munsell_specification)
@@ -23,6 +26,8 @@ from colour.notation.munsell import (
 from colour.notation.munsell import LCHab_to_munsell_specification
 from colour.notation.munsell import maximum_chroma_from_renotation
 from colour.notation.munsell import munsell_specification_to_xy
+from colour.notation.munsell import (munsell_colour_to_xyY,
+                                     xyY_to_munsell_colour)
 from colour.notation.munsell import (munsell_specification_to_xyY,
                                      xyY_to_munsell_specification)
 from colour.notation import (munsell_value_Priest1920,
@@ -30,11 +35,12 @@ from colour.notation import (munsell_value_Priest1920,
                              munsell_value_Saunderson1944,
                              munsell_value_Ladd1955, munsell_value_McCamy1987,
                              munsell_value_ASTMD153508)
-from colour.utilities import ignore_numpy_errors
+from colour.utilities import (as_float_array, domain_range_scale,
+                              ignore_numpy_errors, tstack)
 
 __author__ = 'Colour Developers'
-__copyright__ = 'Copyright (C) 2013-2018 - Colour Developers'
-__license__ = 'New BSD License - http://opensource.org/licenses/BSD-3-Clause'
+__copyright__ = 'Copyright (C) 2013-2019 - Colour Developers'
+__license__ = 'New BSD License - https://opensource.org/licenses/BSD-3-Clause'
 __maintainer__ = 'Colour Developers'
 __email__ = 'colour-science@googlegroups.com'
 __status__ = 'Production'
@@ -316,20 +322,33 @@ MUNSELL_SPECIFICATIONS = np.array([
 MUNSELL_GREYS_SPECIFICATIONS = np.array(
     list(
         zip(
-            np.linspace(0, 10, 25)[:, np.newaxis],
-            ([0.31006, 0.31616, 0.00000000], [0.31006, 0.31616, 0.00473582],
-             [0.31006, 0.31616, 0.00961944], [0.31006, 0.31616, 0.01545756],
-             [0.31006, 0.31616, 0.02293343], [0.31006, 0.31616, 0.03261914],
-             [0.31006, 0.31616, 0.04498800], [0.31006, 0.31616, 0.06042690],
-             [0.31006, 0.31616, 0.07924864], [0.31006, 0.31616, 0.10170428],
-             [0.31006, 0.31616, 0.12799549], [0.31006, 0.31616, 0.15828689],
-             [0.31006, 0.31616, 0.19271844], [0.31006, 0.31616, 0.23141772],
-             [0.31006, 0.31616, 0.27451233], [0.31006, 0.31616, 0.32214224],
-             [0.31006, 0.31616, 0.37447210], [0.31006, 0.31616, 0.43170362],
-             [0.31006, 0.31616, 0.49408790], [0.31006, 0.31616, 0.56193781],
-             [0.31006, 0.31616, 0.63564030], [0.31006, 0.31616, 0.71566876],
-             [0.31006, 0.31616, 0.80259539], [0.31006, 0.31616, 0.89710353],
-             [0.31006, 0.31616, 1.00000000], ))))
+            np.linspace(0, 10, 25)[:, np.newaxis], (
+                [0.31006, 0.31616, 0.00000000],
+                [0.31006, 0.31616, 0.00473582],
+                [0.31006, 0.31616, 0.00961944],
+                [0.31006, 0.31616, 0.01545756],
+                [0.31006, 0.31616, 0.02293343],
+                [0.31006, 0.31616, 0.03261914],
+                [0.31006, 0.31616, 0.04498800],
+                [0.31006, 0.31616, 0.06042690],
+                [0.31006, 0.31616, 0.07924864],
+                [0.31006, 0.31616, 0.10170428],
+                [0.31006, 0.31616, 0.12799549],
+                [0.31006, 0.31616, 0.15828689],
+                [0.31006, 0.31616, 0.19271844],
+                [0.31006, 0.31616, 0.23141772],
+                [0.31006, 0.31616, 0.27451233],
+                [0.31006, 0.31616, 0.32214224],
+                [0.31006, 0.31616, 0.37447210],
+                [0.31006, 0.31616, 0.43170362],
+                [0.31006, 0.31616, 0.49408790],
+                [0.31006, 0.31616, 0.56193781],
+                [0.31006, 0.31616, 0.63564030],
+                [0.31006, 0.31616, 0.71566876],
+                [0.31006, 0.31616, 0.80259539],
+                [0.31006, 0.31616, 0.89710353],
+                [0.31006, 0.31616, 1.00000000],
+            ))))
 
 MUNSELL_EVEN_SPECIFICATIONS = np.array([
     [(7.5, 6.0, 16.0, 3), [0.18320000, 0.44140000, 0.29301153]],
@@ -762,13 +781,15 @@ class TestMunsellValuePriest1920(unittest.TestCase):
         """
 
         self.assertAlmostEqual(
-            munsell_value_Priest1920(10.08), 3.17490157, places=7)
+            munsell_value_Priest1920(12.23634268), 3.498048410185314, places=7)
 
         self.assertAlmostEqual(
-            munsell_value_Priest1920(56.76), 7.53392328, places=7)
+            munsell_value_Priest1920(22.89399987),
+            4.7847674833788947,
+            places=7)
 
         self.assertAlmostEqual(
-            munsell_value_Priest1920(98.32), 9.91564420, places=7)
+            munsell_value_Priest1920(6.29022535), 2.5080321668591092, places=7)
 
     def test_n_dimensional_munsell_value_Priest1920(self):
         """
@@ -776,10 +797,8 @@ class TestMunsellValuePriest1920(unittest.TestCase):
         definition n-dimensional arrays support.
         """
 
-        Y = 10.08
-        V = 3.17490157
-        np.testing.assert_almost_equal(
-            munsell_value_Priest1920(Y), V, decimal=7)
+        Y = 12.23634268
+        V = munsell_value_Priest1920(Y)
 
         V = np.tile(V, 6)
         Y = np.tile(Y, 6)
@@ -795,6 +814,23 @@ class TestMunsellValuePriest1920(unittest.TestCase):
         Y = np.reshape(Y, (2, 3, 1))
         np.testing.assert_almost_equal(
             munsell_value_Priest1920(Y), V, decimal=7)
+
+    def test_domain_range_scale_munsell_value_Priest1920(self):
+        """
+        Tests :func:`colour.notation.munsell.munsell_value_Priest1920`
+        definition domain and range scale support.
+        """
+
+        Y = 12.23634268
+        V = munsell_value_Priest1920(Y)
+
+        d_r = (('reference', 1, 1), (1, 0.01, 0.1), (100, 1, 10))
+        for scale, factor_a, factor_b in d_r:
+            with domain_range_scale(scale):
+                np.testing.assert_almost_equal(
+                    munsell_value_Priest1920(Y * factor_a),
+                    V * factor_b,
+                    decimal=7)
 
     @ignore_numpy_errors
     def test_nan_munsell_value_Priest1920(self):
@@ -820,13 +856,19 @@ class TestMunsellValueMunsell1933(unittest.TestCase):
         """
 
         self.assertAlmostEqual(
-            munsell_value_Munsell1933(10.08), 3.79183555, places=7)
+            munsell_value_Munsell1933(12.23634268),
+            4.1627702416858083,
+            places=7)
 
         self.assertAlmostEqual(
-            munsell_value_Munsell1933(56.76), 8.27013182, places=7)
+            munsell_value_Munsell1933(22.89399987),
+            5.5914543020790592,
+            places=7)
 
         self.assertAlmostEqual(
-            munsell_value_Munsell1933(98.32), 9.95457711, places=7)
+            munsell_value_Munsell1933(6.29022535),
+            3.0141971134091761,
+            places=7)
 
     def test_n_dimensional_munsell_value_Munsell1933(self):
         """
@@ -834,10 +876,8 @@ class TestMunsellValueMunsell1933(unittest.TestCase):
         definition n-dimensional arrays support.
         """
 
-        Y = 10.08
-        V = 3.79183555
-        np.testing.assert_almost_equal(
-            munsell_value_Munsell1933(Y), V, decimal=7)
+        Y = 12.23634268
+        V = munsell_value_Munsell1933(Y)
 
         V = np.tile(V, 6)
         Y = np.tile(Y, 6)
@@ -853,6 +893,23 @@ class TestMunsellValueMunsell1933(unittest.TestCase):
         Y = np.reshape(Y, (2, 3, 1))
         np.testing.assert_almost_equal(
             munsell_value_Munsell1933(Y), V, decimal=7)
+
+    def test_domain_range_scale_munsell_value_Munsell1933(self):
+        """
+        Tests :func:`colour.notation.munsell.munsell_value_Munsell1933`
+        definition domain and range scale support.
+        """
+
+        Y = 12.23634268
+        V = munsell_value_Munsell1933(Y)
+
+        d_r = (('reference', 1, 1), (1, 0.01, 0.1), (100, 1, 10))
+        for scale, factor_a, factor_b in d_r:
+            with domain_range_scale(scale):
+                np.testing.assert_almost_equal(
+                    munsell_value_Munsell1933(Y * factor_a),
+                    V * factor_b,
+                    decimal=7)
 
     @ignore_numpy_errors
     def test_nan_munsell_value_Munsell1933(self):
@@ -878,13 +935,13 @@ class TestMunsellValueMoon1943(unittest.TestCase):
         """
 
         self.assertAlmostEqual(
-            munsell_value_Moon1943(10.08), 3.74629715, places=7)
+            munsell_value_Moon1943(12.23634268), 4.0688120634976421, places=7)
 
         self.assertAlmostEqual(
-            munsell_value_Moon1943(56.76), 7.82258143, places=7)
+            munsell_value_Moon1943(22.89399987), 5.3133627855494412, places=7)
 
         self.assertAlmostEqual(
-            munsell_value_Moon1943(98.32), 9.88538236, places=7)
+            munsell_value_Moon1943(6.29022535), 3.0645015037679695, places=7)
 
     def test_n_dimensional_munsell_value_Moon1943(self):
         """
@@ -892,9 +949,8 @@ class TestMunsellValueMoon1943(unittest.TestCase):
         definition n-dimensional arrays support.
         """
 
-        Y = 10.08
-        V = 3.74629715
-        np.testing.assert_almost_equal(munsell_value_Moon1943(Y), V, decimal=7)
+        Y = 12.23634268
+        V = munsell_value_Moon1943(Y)
 
         V = np.tile(V, 6)
         Y = np.tile(Y, 6)
@@ -907,6 +963,23 @@ class TestMunsellValueMoon1943(unittest.TestCase):
         V = np.reshape(V, (2, 3, 1))
         Y = np.reshape(Y, (2, 3, 1))
         np.testing.assert_almost_equal(munsell_value_Moon1943(Y), V, decimal=7)
+
+    def test_domain_range_scale_munsell_value_Moon1943(self):
+        """
+        Tests :func:`colour.notation.munsell.munsell_value_Moon1943`
+        definition domain and range scale support.
+        """
+
+        Y = 12.23634268
+        V = munsell_value_Moon1943(Y)
+
+        d_r = (('reference', 1, 1), (1, 0.01, 0.1), (100, 1, 10))
+        for scale, factor_a, factor_b in d_r:
+            with domain_range_scale(scale):
+                np.testing.assert_almost_equal(
+                    munsell_value_Moon1943(Y * factor_a),
+                    V * factor_b,
+                    decimal=7)
 
     @ignore_numpy_errors
     def test_nan_munsell_value_Moon1943(self):
@@ -932,13 +1005,19 @@ class TestMunsellValueSaunderson1944(unittest.TestCase):
         """
 
         self.assertAlmostEqual(
-            munsell_value_Saunderson1944(10.08), 3.68650806, places=7)
+            munsell_value_Saunderson1944(12.23634268),
+            4.0444736723175119,
+            places=7)
 
         self.assertAlmostEqual(
-            munsell_value_Saunderson1944(56.76), 7.89881184, places=7)
+            munsell_value_Saunderson1944(22.89399987),
+            5.3783324022305923,
+            places=7)
 
         self.assertAlmostEqual(
-            munsell_value_Saunderson1944(98.32), 9.85197101, places=7)
+            munsell_value_Saunderson1944(6.29022535),
+            2.9089633927316823,
+            places=7)
 
     def test_n_dimensional_munsell_value_Saunderson1944(self):
         """
@@ -946,10 +1025,8 @@ class TestMunsellValueSaunderson1944(unittest.TestCase):
         definition n-dimensional arrays support.
         """
 
-        Y = 10.08
-        V = 3.68650806
-        np.testing.assert_almost_equal(
-            munsell_value_Saunderson1944(Y), V, decimal=7)
+        Y = 12.23634268
+        V = munsell_value_Saunderson1944(Y)
 
         V = np.tile(V, 6)
         Y = np.tile(Y, 6)
@@ -965,6 +1042,23 @@ class TestMunsellValueSaunderson1944(unittest.TestCase):
         Y = np.reshape(Y, (2, 3, 1))
         np.testing.assert_almost_equal(
             munsell_value_Saunderson1944(Y), V, decimal=7)
+
+    def test_domain_range_scale_munsell_value_Saunderson1944(self):
+        """
+        Tests :func:`colour.notation.munsell.munsell_value_Saunderson1944`
+        definition domain and range scale support.
+        """
+
+        Y = 12.23634268
+        V = munsell_value_Saunderson1944(Y)
+
+        d_r = (('reference', 1, 1), (1, 0.01, 0.1), (100, 1, 10))
+        for scale, factor_a, factor_b in d_r:
+            with domain_range_scale(scale):
+                np.testing.assert_almost_equal(
+                    munsell_value_Saunderson1944(Y * factor_a),
+                    V * factor_b,
+                    decimal=7)
 
     @ignore_numpy_errors
     def test_nan_munsell_value_Saunderson1944(self):
@@ -990,13 +1084,13 @@ class TestMunsellValueLadd1955(unittest.TestCase):
         """
 
         self.assertAlmostEqual(
-            munsell_value_Ladd1955(10.08), 3.69528622, places=7)
+            munsell_value_Ladd1955(12.23634268), 4.0511633044287088, places=7)
 
         self.assertAlmostEqual(
-            munsell_value_Ladd1955(56.76), 7.84875137, places=7)
+            munsell_value_Ladd1955(22.89399987), 5.3718647913936772, places=7)
 
         self.assertAlmostEqual(
-            munsell_value_Ladd1955(98.32), 9.75492814, places=7)
+            munsell_value_Ladd1955(6.29022535), 2.9198269939751613, places=7)
 
     def test_n_dimensional_munsell_value_Ladd1955(self):
         """
@@ -1004,9 +1098,8 @@ class TestMunsellValueLadd1955(unittest.TestCase):
         definition n-dimensional arrays support.
         """
 
-        Y = 10.08
-        V = 3.69528622
-        np.testing.assert_almost_equal(munsell_value_Ladd1955(Y), V, decimal=7)
+        Y = 12.23634268
+        V = munsell_value_Ladd1955(Y)
 
         V = np.tile(V, 6)
         Y = np.tile(Y, 6)
@@ -1019,6 +1112,23 @@ class TestMunsellValueLadd1955(unittest.TestCase):
         V = np.reshape(V, (2, 3, 1))
         Y = np.reshape(Y, (2, 3, 1))
         np.testing.assert_almost_equal(munsell_value_Ladd1955(Y), V, decimal=7)
+
+    def test_domain_range_scale_munsell_value_Ladd1955(self):
+        """
+        Tests :func:`colour.notation.munsell.munsell_value_Ladd1955`
+        definition domain and range scale support.
+        """
+
+        Y = 12.23634268
+        V = munsell_value_Ladd1955(Y)
+
+        d_r = (('reference', 1, 1), (1, 0.01, 0.1), (100, 1, 10))
+        for scale, factor_a, factor_b in d_r:
+            with domain_range_scale(scale):
+                np.testing.assert_almost_equal(
+                    munsell_value_Ladd1955(Y * factor_a),
+                    V * factor_b,
+                    decimal=7)
 
     @ignore_numpy_errors
     def test_nan_munsell_value_Ladd1955(self):
@@ -1044,13 +1154,13 @@ class TestMunsellValueMcCamy1992(unittest.TestCase):
         """
 
         self.assertAlmostEqual(
-            munsell_value_McCamy1987(10.08), 3.734723525854632, places=7)
+            munsell_value_McCamy1987(12.23634268), 4.081434853194113, places=7)
 
         self.assertAlmostEqual(
-            munsell_value_McCamy1987(56.76), 7.951693123402992, places=7)
+            munsell_value_McCamy1987(22.89399987), 5.394083970919982, places=7)
 
         self.assertAlmostEqual(
-            munsell_value_McCamy1987(98.32), 9.935265378231314, places=7)
+            munsell_value_McCamy1987(6.29022535), 2.9750160800320096, places=7)
 
     def test_n_dimensional_munsell_value_McCamy1987(self):
         """
@@ -1058,10 +1168,8 @@ class TestMunsellValueMcCamy1992(unittest.TestCase):
         definition n-dimensional arrays support.
         """
 
-        Y = 10.08
-        V = 3.734723525854632
-        np.testing.assert_almost_equal(
-            munsell_value_McCamy1987(Y), V, decimal=7)
+        Y = 12.23634268
+        V = munsell_value_McCamy1987(Y)
 
         V = np.tile(V, 6)
         Y = np.tile(Y, 6)
@@ -1077,6 +1185,23 @@ class TestMunsellValueMcCamy1992(unittest.TestCase):
         Y = np.reshape(Y, (2, 3, 1))
         np.testing.assert_almost_equal(
             munsell_value_McCamy1987(Y), V, decimal=7)
+
+    def test_domain_range_scale_munsell_value_McCamy1987(self):
+        """
+        Tests :func:`colour.notation.munsell.munsell_value_McCamy1987`
+        definition domain and range scale support.
+        """
+
+        Y = 12.23634268
+        V = munsell_value_McCamy1987(Y)
+
+        d_r = (('reference', 1, 1), (1, 0.01, 0.1), (100, 1, 10))
+        for scale, factor_a, factor_b in d_r:
+            with domain_range_scale(scale):
+                np.testing.assert_almost_equal(
+                    munsell_value_McCamy1987(Y * factor_a),
+                    V * factor_b,
+                    decimal=7)
 
     @ignore_numpy_errors
     def test_nan_munsell_value_McCamy1987(self):
@@ -1102,13 +1227,19 @@ class TestMunsellValueASTMD153508(unittest.TestCase):
         """
 
         self.assertAlmostEqual(
-            munsell_value_ASTMD153508(10.08), 3.734476476931135, places=7)
+            munsell_value_ASTMD153508(12.23634268),
+            4.0824437076525664,
+            places=7)
 
         self.assertAlmostEqual(
-            munsell_value_ASTMD153508(56.76), 7.94992421, places=7)
+            munsell_value_ASTMD153508(22.89399987),
+            5.3913268228155395,
+            places=7)
 
         self.assertAlmostEqual(
-            munsell_value_ASTMD153508(98.32), 9.934372853115544, places=7)
+            munsell_value_ASTMD153508(6.29022535),
+            2.9761930839606454,
+            places=7)
 
     def test_n_dimensional_munsell_value_ASTMD153508(self):
         """
@@ -1116,10 +1247,8 @@ class TestMunsellValueASTMD153508(unittest.TestCase):
         definition n-dimensional arrays support.
         """
 
-        Y = 10.08
-        V = 3.734476476931135
-        np.testing.assert_almost_equal(
-            munsell_value_ASTMD153508(Y), V, decimal=7)
+        Y = 12.23634268
+        V = munsell_value_ASTMD153508(Y)
 
         V = np.tile(V, 6)
         Y = np.tile(Y, 6)
@@ -1135,6 +1264,23 @@ class TestMunsellValueASTMD153508(unittest.TestCase):
         Y = np.reshape(Y, (2, 3, 1))
         np.testing.assert_almost_equal(
             munsell_value_ASTMD153508(Y), V, decimal=7)
+
+    def test_domain_range_scale_munsell_value_ASTMD153508(self):
+        """
+        Tests :func:`colour.notation.munsell.munsell_value_ASTMD153508`
+        definition domain and range scale support.
+        """
+
+        Y = 12.23634268
+        V = munsell_value_ASTMD153508(Y)
+
+        d_r = (('reference', 1, 1), (1, 0.01, 0.1), (100, 1, 10))
+        for scale, factor_a, factor_b in d_r:
+            with domain_range_scale(scale):
+                np.testing.assert_almost_equal(
+                    munsell_value_ASTMD153508(Y * factor_a),
+                    V * factor_b,
+                    decimal=7)
 
     @ignore_numpy_errors
     def test_nan_munsell_value_ASTMD153508(self):
@@ -1159,13 +1305,95 @@ class TestMunsellSpecification_to_xyY(unittest.TestCase):
         definition.
         """
 
-        for specification, xyY in MUNSELL_SPECIFICATIONS:
-            np.testing.assert_almost_equal(
-                munsell_specification_to_xyY(specification), xyY, decimal=7)
+        specification, xyY = (
+            as_float_array(list(MUNSELL_SPECIFICATIONS[..., 0])),
+            as_float_array(list(MUNSELL_SPECIFICATIONS[..., 1])),
+        )
+        np.testing.assert_almost_equal(
+            munsell_specification_to_xyY(specification), xyY, decimal=7)
 
-        for specification, xyY in MUNSELL_GREYS_SPECIFICATIONS:
-            np.testing.assert_almost_equal(
-                munsell_specification_to_xyY(specification[0]), xyY, decimal=7)
+        specification, xyY = (
+            as_float_array(list(MUNSELL_GREYS_SPECIFICATIONS[..., 0])),
+            as_float_array(list(MUNSELL_GREYS_SPECIFICATIONS[..., 1])),
+        )
+        specification = np.squeeze(specification)
+        nan_array = np.full(specification.shape, np.nan)
+        specification = tstack(
+            [nan_array, specification, nan_array, nan_array])
+
+        np.testing.assert_almost_equal(
+            munsell_specification_to_xyY(specification), xyY, decimal=7)
+
+    def test_n_dimensional_munsell_specification_to_xyY(self):
+        """
+        Tests :func:`colour.notation.munsell.munsell_specification_to_xyY`
+        definition n-dimensional arrays support.
+        """
+
+        specification = np.array(
+            [7.18927191, 5.34025196, 16.05861170, 3.00000000])
+        xyY = munsell_specification_to_xyY(specification)
+
+        specification = np.tile(specification, (6, 1))
+        xyY = np.tile(xyY, (6, 1))
+        np.testing.assert_almost_equal(
+            munsell_specification_to_xyY(specification), xyY, decimal=7)
+
+        specification = np.reshape(specification, (2, 3, 4))
+        xyY = np.reshape(xyY, (2, 3, 3))
+        np.testing.assert_almost_equal(
+            munsell_specification_to_xyY(specification), xyY, decimal=7)
+
+        specification = np.array([np.nan, 8.9, np.nan, np.nan])
+        xyY = munsell_specification_to_xyY(specification)
+
+        specification = np.tile(specification, (6, 1))
+        xyY = np.tile(xyY, (6, 1))
+        np.testing.assert_almost_equal(
+            munsell_specification_to_xyY(specification), xyY, decimal=7)
+
+        specification = np.reshape(specification, (2, 3, 4))
+        xyY = np.reshape(xyY, (2, 3, 3))
+        np.testing.assert_almost_equal(
+            munsell_specification_to_xyY(specification), xyY, decimal=7)
+
+    def test_domain_range_scale_munsell_specification_to_xyY(self):
+        """
+        Tests :func:`colour.notation.munsell.munsell_specification_to_xyY`
+        definition domain and range scale support.
+        """
+
+        specification = np.array(
+            [7.18927191, 5.34025196, 16.05861170, 3.00000000])
+        xyY = munsell_specification_to_xyY(specification)
+
+        d_r = (
+            ('reference', 1, 1),
+            (1, np.array([0.1, 0.1, 1 / 50, 0.1]), 1),
+            (100, np.array([10, 10, 2, 10]), np.array([1, 1, 100])),
+        )
+        for scale, factor_a, factor_b in d_r:
+            with domain_range_scale(scale):
+                np.testing.assert_almost_equal(
+                    munsell_specification_to_xyY(specification * factor_a),
+                    xyY * factor_b,
+                    decimal=7)
+
+    @ignore_numpy_errors
+    def test_nan_munsell_specification_to_xyY(self):
+        """
+        Tests :func:`colour.notation.munsell.munsell_specification_to_xyY`
+        definition nan support.
+        """
+
+        cases = [-1.0, 0.0, 1.0, -np.inf, np.inf, np.nan]
+        cases = set(permutations(cases * 3, r=4))
+        for case in cases:
+            specification = np.array(case)
+            try:
+                munsell_specification_to_xyY(specification)
+            except (AssertionError, TypeError, ValueError):
+                pass
 
 
 class TestMunsellColour_to_xyY(unittest.TestCase):
@@ -1174,15 +1402,37 @@ class TestMunsellColour_to_xyY(unittest.TestCase):
     unit tests methods.
     """
 
-    def test_munsell_colour_to_xyY(self):
+    def test_n_dimensional_munsell_colour_to_xyY(self):
         """
-        Tests :func:`colour.notation.munsell.munsell_colour_to_xyY` definition.
+        Tests :func:`colour.notation.munsell.munsell_colour_to_xyY` definition
+        n-dimensional arrays support.
         """
 
-        # TODO: This test is covered by the previous class,
-        # do we need a dedicated one?
+        munsell_colour = '4.2YR 8.1/5.3'
+        xyY = munsell_colour_to_xyY(munsell_colour)
 
-        pass
+        munsell_colour = np.tile(munsell_colour, 6)
+        xyY = np.tile(xyY, (6, 1))
+        np.testing.assert_almost_equal(
+            munsell_colour_to_xyY(munsell_colour), xyY, decimal=7)
+
+        munsell_colour = np.reshape(munsell_colour, (2, 3))
+        xyY = np.reshape(xyY, (2, 3, 3))
+        np.testing.assert_almost_equal(
+            munsell_colour_to_xyY(munsell_colour), xyY, decimal=7)
+
+        munsell_colour = 'N8.9'
+        xyY = munsell_colour_to_xyY(munsell_colour)
+
+        munsell_colour = np.tile(munsell_colour, 6)
+        xyY = np.tile(xyY, (6, 1))
+        np.testing.assert_almost_equal(
+            munsell_colour_to_xyY(munsell_colour), xyY, decimal=7)
+
+        munsell_colour = np.reshape(munsell_colour, (2, 3))
+        xyY = np.reshape(xyY, (2, 3, 3))
+        np.testing.assert_almost_equal(
+            munsell_colour_to_xyY(munsell_colour), xyY, decimal=7)
 
 
 class TestxyY_to_munsell_specification(unittest.TestCase):
@@ -1197,19 +1447,88 @@ class TestxyY_to_munsell_specification(unittest.TestCase):
         definition.
         """
 
-        for specification, xyY in MUNSELL_SPECIFICATIONS:
-            np.testing.assert_allclose(
-                xyY_to_munsell_specification(xyY),
-                specification,
-                rtol=0.00001,
-                atol=0.00001)
+        specification, xyY = (
+            as_float_array(list(MUNSELL_SPECIFICATIONS[..., 0])),
+            as_float_array(list(MUNSELL_SPECIFICATIONS[..., 1])),
+        )
 
-        for specification, xyY in MUNSELL_GREYS_SPECIFICATIONS:
-            np.testing.assert_allclose(
-                xyY_to_munsell_specification(xyY),
-                specification[0],
-                rtol=0.00001,
-                atol=0.00001)
+        np.testing.assert_allclose(
+            xyY_to_munsell_specification(xyY),
+            specification,
+            rtol=0.00001,
+            atol=0.00001)
+
+        specification, xyY = (
+            as_float_array(list(MUNSELL_GREYS_SPECIFICATIONS[..., 0])),
+            as_float_array(list(MUNSELL_GREYS_SPECIFICATIONS[..., 1])),
+        )
+        specification = np.squeeze(specification)
+        nan_array = np.full(specification.shape, np.nan)
+        specification = tstack(
+            [nan_array, specification, nan_array, nan_array])
+
+        np.testing.assert_allclose(
+            xyY_to_munsell_specification(xyY),
+            specification,
+            rtol=0.00001,
+            atol=0.00001)
+
+    def test_n_dimensional_xyY_to_munsell_specification(self):
+        """
+        Tests :func:`colour.notation.munsell.xyY_to_munsell_specification`
+        definition n-dimensional arrays support.
+        """
+
+        xyY = [0.16623068, 0.45684550, 0.22399519]
+        specification = xyY_to_munsell_specification(xyY)
+
+        xyY = np.tile(xyY, (6, 1))
+        specification = np.tile(specification, (6, 1))
+        np.testing.assert_almost_equal(
+            xyY_to_munsell_specification(xyY), specification, decimal=7)
+
+        xyY = np.reshape(xyY, (2, 3, 3))
+        specification = np.reshape(specification, (2, 3, 4))
+        np.testing.assert_almost_equal(
+            xyY_to_munsell_specification(xyY), specification, decimal=7)
+
+    def test_domain_range_scale_xyY_to_munsell_specification(self):
+        """
+        Tests :func:`colour.notation.munsell.xyY_to_munsell_specification`
+        definition domain and range scale support.
+        """
+
+        xyY = [0.16623068, 0.45684550, 0.22399519]
+        specification = xyY_to_munsell_specification(xyY)
+
+        d_r = (
+            ('reference', 1, 1),
+            (1, 1, np.array([0.1, 0.1, 1 / 50, 0.1])),
+            (100, np.array([1, 1, 100]), np.array([10, 10, 2, 10])),
+        )
+        for scale, factor_a, factor_b in d_r:
+            with domain_range_scale(scale):
+                np.testing.assert_allclose(
+                    xyY_to_munsell_specification(xyY * factor_a),
+                    specification * factor_b,
+                    rtol=0.00001,
+                    atol=0.00001)
+
+    @ignore_numpy_errors
+    def test_nan_xyY_to_munsell_specification(self):
+        """
+        Tests :func:`colour.notation.munsell.xyY_to_munsell_specification`
+        definition nan support.
+        """
+
+        cases = [-1.0, 0.0, 1.0, -np.inf, np.inf, np.nan]
+        cases = set(permutations(cases * 3, r=3))
+        for case in cases:
+            specification = np.array(case)
+            try:
+                xyY_to_munsell_specification(specification)
+            except (AssertionError, TypeError, ValueError):
+                pass
 
 
 class TestxyY_to_munsell_colour(unittest.TestCase):
@@ -1218,15 +1537,33 @@ class TestxyY_to_munsell_colour(unittest.TestCase):
     unit tests methods.
     """
 
-    def test_xyY_to_munsell_colour(self):
+    def test_n_dimensional_xyY_to_munsell_colour(self):
         """
-        Tests :func:`colour.notation.munsell.xyY_to_munsell_colour` definition.
+        Tests :func:`colour.notation.munsell.xyY_to_munsell_colour` definition
+        n-dimensional arrays support.
         """
 
-        # TODO: This test is covered by the previous class,
-        # do we need a dedicated one?
+        xyY = [0.16623068, 0.45684550, 0.22399519]
+        munsell_colour = xyY_to_munsell_colour(xyY)
 
-        pass
+        xyY = np.tile(xyY, (6, 1))
+        munsell_colour = np.tile(munsell_colour, 6)
+        np.testing.assert_equal(xyY_to_munsell_colour(xyY), munsell_colour)
+
+        xyY = np.reshape(xyY, (2, 3, 3))
+        munsell_colour = np.reshape(munsell_colour, (2, 3))
+        np.testing.assert_equal(xyY_to_munsell_colour(xyY), munsell_colour)
+
+        xyY = list(MUNSELL_DEFAULT_ILLUMINANT_CHROMATICITY_COORDINATES) + [1.0]
+        munsell_colour = xyY_to_munsell_colour(xyY)
+
+        xyY = np.tile(xyY, (6, 1))
+        munsell_colour = np.tile(munsell_colour, 6)
+        np.testing.assert_equal(xyY_to_munsell_colour(xyY), munsell_colour)
+
+        xyY = np.reshape(xyY, (2, 3, 3))
+        munsell_colour = np.reshape(munsell_colour, (2, 3))
+        np.testing.assert_equal(xyY_to_munsell_colour(xyY), munsell_colour)
 
 
 class TestParseMunsellColour(unittest.TestCase):
@@ -1241,13 +1578,20 @@ class TestParseMunsellColour(unittest.TestCase):
         definition.
         """
 
-        self.assertEqual(parse_munsell_colour('N5.2'), 5.2)
+        np.testing.assert_almost_equal(
+            parse_munsell_colour('N5.2'),
+            np.array([np.nan, 5.2, np.nan, np.nan]),
+            decimal=7)
 
-        self.assertTupleEqual(
-            parse_munsell_colour('0YR 2.0/4.0'), (0.0, 2.0, 4.0, 6))
+        np.testing.assert_almost_equal(
+            parse_munsell_colour('0YR 2.0/4.0'),
+            np.array([0.0, 2.0, 4.0, 6]),
+            decimal=7)
 
-        self.assertTupleEqual(
-            parse_munsell_colour('4.2YR 8.1/5.3'), (4.2, 8.1, 5.3, 6))
+        np.testing.assert_almost_equal(
+            parse_munsell_colour('4.2YR 8.1/5.3'),
+            np.array([4.2, 8.1, 5.3, 6]),
+            decimal=7)
 
 
 class TestIsGreyMunsellColour(unittest.TestCase):
@@ -1264,9 +1608,12 @@ class TestIsGreyMunsellColour(unittest.TestCase):
 
         self.assertTrue(is_grey_munsell_colour(5.2))
 
-        self.assertFalse(is_grey_munsell_colour((0.0, 2.0, 4.0, 6)))
+        self.assertFalse(is_grey_munsell_colour(np.array([0.0, 2.0, 4.0, 6])))
 
-        self.assertFalse(is_grey_munsell_colour((4.2, 8.1, 5.3, 6)))
+        self.assertFalse(is_grey_munsell_colour(np.array([4.2, 8.1, 5.3, 6])))
+
+        self.assertTrue(
+            is_grey_munsell_colour(np.array([np.nan, 0.5, np.nan, np.nan])))
 
 
 class TestNormalizeMunsellSpecification(unittest.TestCase):
@@ -1281,19 +1628,25 @@ class TestNormalizeMunsellSpecification(unittest.TestCase):
         definition.
         """
 
-        self.assertTupleEqual(
-            normalize_munsell_specification((0.0, 2.0, 4.0, 6)), (10.0, 2.0,
-                                                                  4.0, 7))
+        np.testing.assert_almost_equal(
+            normalize_munsell_specification((0.0, 2.0, 4.0, 6)),
+            np.array([10.0, 2.0, 4.0, 7]),
+            decimal=7)
 
-        self.assertTupleEqual(
-            normalize_munsell_specification((0.0, 2.0, 4.0, 8)), (10.0, 2.0,
-                                                                  4.0, 9))
+        np.testing.assert_almost_equal(
+            normalize_munsell_specification((0.0, 2.0, 4.0, 8)),
+            np.array([10.0, 2.0, 4.0, 9]),
+            decimal=7)
 
-        self.assertTupleEqual(
-            normalize_munsell_specification((0, 2.0, 4.0, 10)), (10.0, 2.0,
-                                                                 4.0, 1))
+        np.testing.assert_almost_equal(
+            normalize_munsell_specification((0, 2.0, 4.0, 10)),
+            np.array([10.0, 2.0, 4.0, 1]),
+            decimal=7)
 
-        self.assertEqual(normalize_munsell_specification((0, 2.0, 0, 10)), 2)
+        np.testing.assert_almost_equal(
+            normalize_munsell_specification(0.5),
+            np.array([np.nan, 0.5, np.nan, np.nan]),
+            decimal=7)
 
 
 class TestMunsellColourToMunsellSpecification(unittest.TestCase):
@@ -1308,21 +1661,30 @@ munsell_colour_to_munsell_specification` definition unit tests methods.
 munsell_colour_to_munsell_specification` definition.
         """
 
-        self.assertTupleEqual(
+        np.testing.assert_almost_equal(
             munsell_colour_to_munsell_specification('0.0YR 2.0/4.0'),
-            (10.0, 2.0, 4.0, 7))
+            np.array([10.0, 2.0, 4.0, 7]),
+            decimal=7)
 
-        self.assertTupleEqual(
+        np.testing.assert_almost_equal(
             munsell_colour_to_munsell_specification('0.0RP 2.0/4.0'),
-            (10.0, 2.0, 4.0, 9))
+            np.array([10.0, 2.0, 4.0, 9]),
+            decimal=7)
 
-        self.assertTupleEqual(
+        np.testing.assert_almost_equal(
             munsell_colour_to_munsell_specification('10.0B 2.0/4.0'),
-            (10.0, 2.0, 4.0, 1))
+            np.array([10.0, 2.0, 4.0, 1]),
+            decimal=7)
 
-        self.assertEqual(munsell_colour_to_munsell_specification('N5.2'), 5.2)
-        self.assertEqual(
-            munsell_colour_to_munsell_specification('0.0YR 2.0/0.0'), 2)
+        np.testing.assert_almost_equal(
+            munsell_colour_to_munsell_specification('N5.2'),
+            np.array([np.nan, 5.2, np.nan, np.nan]),
+            decimal=7)
+
+        np.testing.assert_almost_equal(
+            munsell_colour_to_munsell_specification('0.0YR 2.0/0.0'),
+            np.array([np.nan, 2.0, np.nan, np.nan]),
+            decimal=7)
 
 
 class TestMunsellSpecificationToMunsellColour(unittest.TestCase):
@@ -1338,18 +1700,20 @@ munsell_specification_to_munsell_colour` definition.
         """
 
         self.assertEqual(
-            munsell_specification_to_munsell_colour((10, 2.0, 4.0, 7)),
-            '10.0R 2.0/4.0')
+            munsell_specification_to_munsell_colour(
+                np.array([10, 2.0, 4.0, 7])), '10.0R 2.0/4.0')
 
         self.assertEqual(
-            munsell_specification_to_munsell_colour((10.0, 2.0, 4.0, 9)),
-            '10.0P 2.0/4.0')
+            munsell_specification_to_munsell_colour(
+                np.array([10.0, 2.0, 4.0, 9])), '10.0P 2.0/4.0')
 
         self.assertEqual(
-            munsell_specification_to_munsell_colour((10.0, 2.0, 4.0, 1)),
-            '10.0B 2.0/4.0')
+            munsell_specification_to_munsell_colour(
+                np.array([10.0, 2.0, 4.0, 1])), '10.0B 2.0/4.0')
 
-        self.assertEqual(munsell_specification_to_munsell_colour(5.2), 'N5.2')
+        self.assertEqual(
+            munsell_specification_to_munsell_colour(
+                np.array([np.nan, 5.2, np.nan, np.nan])), 'N5.2')
 
 
 class Test_xyY_fromRenotation(unittest.TestCase):
@@ -1389,11 +1753,14 @@ class TestIsSpecificationInRenotation(unittest.TestCase):
         definition.
         """
 
-        self.assertTrue(is_specification_in_renotation((2.5, 0.2, 2.0, 4)))
+        self.assertTrue(
+            is_specification_in_renotation(np.array([2.5, 0.2, 2.0, 4])))
 
-        self.assertTrue(is_specification_in_renotation((5.0, 0.2, 2.0, 4)))
+        self.assertTrue(
+            is_specification_in_renotation(np.array([5.0, 0.2, 2.0, 4])))
 
-        self.assertFalse(is_specification_in_renotation((25.0, 0.2, 2.0, 4)))
+        self.assertFalse(
+            is_specification_in_renotation(np.array([25.0, 0.2, 2.0, 4])))
 
 
 class TestBoundingHuesFromRenotation(unittest.TestCase):
@@ -1442,7 +1809,7 @@ class TestHueAngleToHue(unittest.TestCase):
         """
 
         for hue, code, angle in MUNSELL_HUE_TO_ANGLE:
-            self.assertEqual(hue_angle_to_hue(angle), (hue, code))
+            np.testing.assert_array_equal(hue_angle_to_hue(angle), (hue, code))
 
 
 class TestHueTo_ASTM_hue(unittest.TestCase):
@@ -1492,7 +1859,7 @@ class Test_xy_fromRenotationOvoid(unittest.TestCase):
 
         for i, (specification, _xyY) in enumerate(MUNSELL_EVEN_SPECIFICATIONS):
             if is_specification_in_renotation(specification):
-                np.testing.assert_array_almost_equal(
+                np.testing.assert_almost_equal(
                     xy_from_renotation_ovoid(specification),
                     MUNSELL_XY_FROM_RENOTATION_OVOID[i],
                     decimal=7)
@@ -1513,19 +1880,19 @@ class TestLCHabToMunsellSpecification(unittest.TestCase):
         np.testing.assert_almost_equal(
             LCHab_to_munsell_specification(
                 np.array([100.00000000, 21.57210357, 272.22819350])),
-            (5.618942638888882, 10.0, 4.314420714000000, 10),
+            np.array([5.618942638888882, 10.0, 4.314420714000000, 10]),
             decimal=7)
 
         np.testing.assert_almost_equal(
             LCHab_to_munsell_specification(
                 np.array([100.00000000, 426.67945353, 72.39590835])),
-            (0.109974541666666, 10.0, 85.335890706000001, 5),
+            np.array([0.109974541666666, 10.0, 85.335890706000001, 5]),
             decimal=7)
 
         np.testing.assert_almost_equal(
             LCHab_to_munsell_specification(
                 np.array([100.00000000, 74.05216981, 276.45318193])),
-            (6.792550536111119, 10.0, 14.810433961999999, 10),
+            np.array([6.792550536111119, 10.0, 14.810433961999999, 10]),
             decimal=7)
 
 
